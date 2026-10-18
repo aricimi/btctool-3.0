@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+.venv*/
+env/
+venv/
+ENV/
+
+# Secrets & Config
+.env
+*.env
+render_api_key.txt
+uptimerobot_api_key.txt
+discord_webhook.txt
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
