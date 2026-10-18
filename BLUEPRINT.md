@@ -80,11 +80,25 @@
 └────────────────────┬────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────┐
+│   LEVEL 5 — 24/7 MULTI-SCREEN SCENARIO SIMULATOR        │
+│   (Persistent Multi-Wave Forward Simulation)            │
+│                                                         │
+│   • 10 Screens Synthesized (1M, 3M, 5M, 15M, 30M,      │
+│     1H, 2H, 4H, 8H, 1D)                                │
+│   • Multi-Wave Projections:                             │
+│     - Wave 1 (Immediate Move): Entry Zone, Target, Amp  │
+│     - Wave 2 (Subsequent Trajectory): Re-dip / Fade     │
+│   • Sticky Lifecycle Tracking: Zero Tick-Jitter/Flipping│
+│     (OPTIMAL_ENTRY → IN_PROGRESS → EXHAUSTION → TARGET) │
+└────────────────────┬────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────────────┐
 │                   WEB DASHBOARD                         │
-│  • FastAPI asynchronous backend                         │
+│  • FastAPI asynchronous backend + /btc/scenario API     │
 │  • High-performance HTML5/CSS3/Vanilla JS UI           │
-│  • Instant 9-timeframe switching (<0.1s cache warmer)  │
-│  • Cross-timeframe alignment score (7-9, 5-6, <5)      │
+│  • Instant 10-timeframe switching (<0.1s cache warmer) │
+│  • Card 1: 24/7 Multi-Screen Scenario Simulator        │
+│  • Cross-timeframe alignment score (10 TFs)             │
 │  • Memory hardened for cloud (<120 MB RAM target)       │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -120,7 +134,7 @@ Offline calibration conducted via `backtest/calibrate.py`:
 c:\gemini proyect\btctool 3.0\
 ├── backend\
 │   ├── app.py                      # FastAPI server, health check, CORS, API routes
-│   ├── config.py                   # Unified constants, endpoints, 9-TF parameter table
+│   ├── config.py                   # Unified constants, endpoints, 10-TF parameter table
 │   ├── services\
 │   │   ├── market_data.py          # Bybit Spot primary + Binance/yfinance fallbacks
 │   │   ├── orderbook.py            # Bybit/OKX L2 depth, tanh alpha, 3-snapshot anti-spoof
@@ -130,17 +144,18 @@ c:\gemini proyect\btctool 3.0\
 │   │   ├── ml_learner.py           # HistGradientBoostingClassifier + Platt calibration
 │   │   ├── pre_filter.py           # Derivatives pre-filter & ADX regime gate
 │   │   ├── decision_matrix.py      # 5 Scenarios, anti-collision, ATR triggers & cross-TF score
+│   │   ├── scenario_simulator.py   # 24/7 Multi-Screen Intraday Scenario Simulator with sticky multi-wave state
 │   │   └── engine.py               # Master orchestrator & background cache warmer
 │   └── utils\
 │       └── http_client.py          # Async httpx client with connection pooling & retries
 ├── frontend\
-│   ├── index.html                  # Responsive 9-timeframe trading terminal layout
+│   ├── index.html                  # Responsive 10-timeframe trading terminal & Scenario Simulator Card layout
 │   ├── script.js                   # High-speed local caching (<0.1s switch) & DOM binding
 │   └── styles.css                  # Modern institutional dark trading terminal styling
 ├── backtest\
 │   └── calibrate.py                # Parameter calibration harness (k-factor, ADX, squeeze)
 ├── tests\
-│   └── test_engine.py              # Comprehensive test suite (all 7 tests passing)
+│   └── test_engine.py              # Comprehensive test suite (all 12 tests passing)
 ├── .env                            # Local deployment secrets (git-ignored)
 ├── .gitignore                      # Git exclusion rules
 ├── render.yaml                     # Render infrastructure blueprint
