@@ -212,24 +212,53 @@ class TestBtcToolEngine(unittest.TestCase):
         self.assertEqual(align["alignment_status"], "STRONG CONFLUENCE")
 
     def test_simulate_intraday_scenario_bearish_relief_bounce(self):
-        # 4H is in downtrend, 5M is washed out below lower band
+        # 4H is in downtrend, but tactical frames show bottomed kinetic push (MA5 > MA10, bands opening, taker buy)
         tf_cache = {
             "4h": {"pre_filter": {"regime": "Trend Down"}, "indicators": {"bb_direction": "DOWNWARD"}},
             "2h": {"indicators": {"bb_direction": "DOWNWARD"}},
             "5m": {
                 "indicators": {
-                    "pct_b": 0.20,
+                    "pct_b": 0.40,
+                    "ma5": 80850.0,
+                    "ma10": 80780.0,
                     "bb_lower": 80700.0,
                     "bb_middle": 81100.0,
                     "bb_upper": 81500.0,
                     "bb_bandwidth_pct": 0.40,
+                    "bb_state": "EXPANDING_UP",
+                    "bb_direction": "UPWARD",
+                    "bb_is_opening": True,
+                    "macd_dif": 15.0,
+                    "macd_dea": 5.0,
+                    "is_accelerating": True,
                     "atr": 100.0,
                 }
             },
-            "15m": {"indicators": {"pct_b": 0.22, "atr": 150.0}}
+            "3m": {
+                "indicators": {
+                    "ma5": 80840.0,
+                    "ma10": 80790.0,
+                    "bb_state": "EXPANDING_UP",
+                    "bb_direction": "UPWARD",
+                    "bb_is_opening": True,
+                    "macd_dif": 10.0,
+                    "macd_dea": 3.0,
+                    "is_accelerating": True,
+                }
+            },
+            "1m": {
+                "indicators": {
+                    "ma5": 80830.0,
+                    "ma10": 80800.0,
+                    "bb_state": "EXPANDING_UP",
+                    "bb_direction": "UPWARD",
+                    "bb_is_opening": True,
+                }
+            },
+            "15m": {"indicators": {"pct_b": 0.35, "atr": 150.0}}
         }
-        orderbook = {"mid_price": 80800.0, "imbalance_ratio": 0.15}
-        derivatives = {"funding_rate_pct": 0.01}
+        orderbook = {"mid_price": 80800.0, "imbalance_ratio": 0.25}
+        derivatives = {"taker_delta": 0.50}
 
         scen = simulate_intraday_scenario(
             current_price=80800.0,
@@ -239,12 +268,13 @@ class TestBtcToolEngine(unittest.TestCase):
         )
 
         self.assertEqual(scen["macro_bias"], "BEARISH")
-        self.assertIn("Relief Bounce", scen["headline"])
+        self.assertIn("Kinetic Push", scen["headline"])
         self.assertEqual(scen["wave_1"]["direction"], "LONG")
         self.assertEqual(scen["wave_2"]["direction"], "SHORT")
         self.assertGreater(scen["wave_1"]["target_price"], 80800.0)
         self.assertLess(scen["invalidation_floor"], 80800.0)
-        self.assertGreater(scen["wave_1"]["expected_amplitude_dollars"], 200.0)
+        self.assertGreater(scen["wave_1"]["expected_amplitude_dollars"], 150.0)
+        self.assertGreater(scen["prob_up_pct"], 50.0)
 
 if __name__ == "__main__":
     unittest.main()

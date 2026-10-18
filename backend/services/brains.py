@@ -201,33 +201,45 @@ def calc_squeeze_fsm(df: pd.DataFrame, bb_period: int, bb_std: float, loaded_bar
 class StatisticalBrain:
     """Evaluates %B boundaries, Bollinger envelope elasticity, and regime-aware support/resistance."""
     @staticmethod
-    def evaluate(close: float, bb_upper: float, bb_lower: float, macro_regime: str) -> Dict[str, Any]:
+    def evaluate(close: float, bb_upper: float, bb_lower: float, macro_regime: str,
+                 bb_state: str = "NORMAL_RANGE", bb_is_opening: bool = False, bb_direction: str = "HORIZONTAL") -> Dict[str, Any]:
         span = bb_upper - bb_lower
         pct_b = (close - bb_lower) / span if span > 0 else 0.5
         pct_b = max(0.0, min(1.0, pct_b))
         
-        # Baseline scores strictly based on local %B envelope
-        bull_score = 0.50 + (0.50 - pct_b) * 0.7
-        bear_score = 0.50 + (pct_b - 0.50) * 0.7
-        regime_note = "Local %B Envelope"
-        
-        # Soft macro context advisory (zero hard veto)
-        if macro_regime == "Trend Down":
-            if pct_b >= 0.60:
-                bear_score += 0.08
-                bull_score -= 0.08
-                regime_note = "Local Ceiling (4H Downtrend context)"
-            elif pct_b <= 0.20:
-                bull_score += 0.08
-                bear_score -= 0.08
-                regime_note = "Local Oversold Wick Support"
-        elif macro_regime == "Trend Up":
-            if pct_b <= 0.40:
-                bull_score += 0.08
-                bear_score -= 0.08
-                regime_note = "Local Dip Support (4H Uptrend context)"
-            elif pct_b >= 0.80:
-                regime_note = "Local Upper Expansion"
+        # If bands are actively opening and expanding UP, riding the upper band is dynamic BULLISH expansion!
+        if bb_state == "EXPANDING_UP" or (bb_is_opening and bb_direction == "UPWARD"):
+            bull_score = 0.65 + (pct_b - 0.50) * 0.4
+            bear_score = 1.0 - bull_score
+            regime_note = "Dynamic Bullish Expansion (Riding Opening Upper Band)"
+        # If bands are actively opening and expanding DOWN, riding lower band is dynamic BEARISH expansion!
+        elif bb_state == "EXPANDING_DOWN" or (bb_is_opening and bb_direction == "DOWNWARD"):
+            bear_score = 0.65 + (0.50 - pct_b) * 0.4
+            bull_score = 1.0 - bear_score
+            regime_note = "Dynamic Bearish Expansion (Riding Opening Lower Band)"
+        else:
+            # Baseline scores for normal range / mean-reversion
+            bull_score = 0.50 + (0.50 - pct_b) * 0.7
+            bear_score = 0.50 + (pct_b - 0.50) * 0.7
+            regime_note = "Local %B Envelope (Range Mode)"
+            
+            # Soft macro context advisory for range mode
+            if macro_regime == "Trend Down":
+                if pct_b >= 0.60:
+                    bear_score += 0.08
+                    bull_score -= 0.08
+                    regime_note = "Local Ceiling (Range in Downtrend)"
+                elif pct_b <= 0.20:
+                    bull_score += 0.08
+                    bear_score -= 0.08
+                    regime_note = "Local Oversold Support"
+            elif macro_regime == "Trend Up":
+                if pct_b <= 0.40:
+                    bull_score += 0.08
+                    bear_score -= 0.08
+                    regime_note = "Local Dip Support"
+                elif pct_b >= 0.80:
+                    regime_note = "Local Upper Resistance"
                 
         return {
             "bull_score": round(float(max(0.05, min(0.95, bull_score))), 4),
@@ -239,66 +251,98 @@ class StatisticalBrain:
         }
 
 class MomentumBrain:
-    """Evaluates dynamic multi-scale RSI, EMA trend alignment, and smoothed MACD histogram slope."""
+    """Evaluates dynamic multi-scale RSI, MA5/10 crossovers, MACD DIF/DEA, and Volume surge."""
     @staticmethod
     def evaluate(df: pd.DataFrame, rsi_periods: Tuple[int, int, int], fast_ema_period: int, slow_ema_period: int,
                  macd_fast: int, macd_slow: int, macd_signal: int) -> Dict[str, Any]:
         close = df["close"]
+        curr_close = float(close.iloc[-1])
         
         # 1. Multi-scale RSI
         rsi_fast = calc_wilder_rsi(close, rsi_periods[0]).iloc[-1]
         rsi_mid = calc_wilder_rsi(close, rsi_periods[1]).iloc[-1]
         rsi_slow = calc_wilder_rsi(close, rsi_periods[2]).iloc[-1]
         
-        # 2. Dual EMAs
+        # 2. Moving Averages: MA(5) and MA(10)
+        ma5_series = close.rolling(5).mean()
+        ma10_series = close.rolling(10).mean()
+        curr_ma5 = float(ma5_series.iloc[-1]) if not pd.isna(ma5_series.iloc[-1]) else curr_close
+        curr_ma10 = float(ma10_series.iloc[-1]) if not pd.isna(ma10_series.iloc[-1]) else curr_close
+        
+        # Dual EMAs
         fast_ema = close.ewm(span=fast_ema_period, adjust=False).mean()
         slow_ema = close.ewm(span=slow_ema_period, adjust=False).mean()
         curr_fast_ema = fast_ema.iloc[-1]
         curr_slow_ema = slow_ema.iloc[-1]
-        curr_close = close.iloc[-1]
         
-        # 3. MACD
+        # 3. MACD: DIF (fast-slow), DEA (signal), and Histogram
         ema_m_fast = close.ewm(span=macd_fast, adjust=False).mean()
         ema_m_slow = close.ewm(span=macd_slow, adjust=False).mean()
         macd_line = ema_m_fast - ema_m_slow
         signal_line = macd_line.ewm(span=macd_signal, adjust=False).mean()
         macd_hist = macd_line - signal_line
         
-        curr_hist = macd_hist.iloc[-1]
-        # 2-bar smoothed derivative: (hist_t - hist_{t-2}) / 2.0
+        curr_dif = float(macd_line.iloc[-1])
+        curr_dea = float(signal_line.iloc[-1])
+        curr_hist = float(macd_hist.iloc[-1])
+        
         prev_hist_2 = macd_hist.iloc[-3] if len(macd_hist) >= 3 else macd_hist.iloc[-2]
         smooth_slope = (curr_hist - prev_hist_2) / 2.0
         
+        # 4. Volume Surge vs MA(10) Volume
+        vol_surge = 1.0
+        if "volume" in df.columns:
+            vol = df["volume"]
+            vol_sma10 = vol.rolling(10).mean().iloc[-1] if len(vol) >= 10 else vol.mean()
+            vol_surge = float(vol.iloc[-1] / (vol_sma10 + 1e-6)) if vol_sma10 > 0 else 1.0
+            
         # Scoring synthesis
         bull_points = 0.0
         bear_points = 0.0
         
-        # RSI points (0-30 points)
+        # RSI points (0-25 points)
         if rsi_fast > 50 and rsi_mid > 50:
             bull_points += 0.15
         elif rsi_fast < 50 and rsi_mid < 50:
             bear_points += 0.15
             
         if rsi_fast < 30:
-            bull_points += 0.15 # Oversold bounce potential
+            bull_points += 0.10 # Oversold bounce potential
         elif rsi_fast > 70:
-            bear_points += 0.15 # Overbought fade potential
+            bear_points += 0.10 # Overbought fade potential
             
-        # EMA trend points (0-35 points)
-        if curr_close > curr_fast_ema > curr_slow_ema:
-            bull_points += 0.35
-        elif curr_close < curr_fast_ema < curr_slow_ema:
-            bear_points += 0.35
-        elif curr_fast_ema > curr_slow_ema:
-            bull_points += 0.15
+        # MA(5) vs MA(10) and EMA trend (0-35 points)
+        if curr_close > curr_ma5 > curr_ma10:
+            bull_points += 0.25
+        elif curr_close < curr_ma5 < curr_ma10:
+            bear_points += 0.25
+        elif curr_ma5 > curr_ma10:
+            bull_points += 0.10
         else:
-            bear_points += 0.15
+            bear_points += 0.10
             
-        # MACD momentum slope (0-35 points)
+        if curr_fast_ema > curr_slow_ema:
+            bull_points += 0.10
+        else:
+            bear_points += 0.10
+            
+        # MACD momentum: DIF > DEA & expanding histogram (0-25 points)
+        if curr_dif > curr_dea:
+            bull_points += 0.12
+        else:
+            bear_points += 0.12
+            
         if smooth_slope > 0:
-            bull_points += min(0.35, 0.15 + (abs(smooth_slope) / (curr_close * 0.001 + 1e-5)) * 0.1)
+            bull_points += min(0.13, 0.05 + (abs(smooth_slope) / (curr_close * 0.001 + 1e-5)) * 0.08)
         else:
-            bear_points += min(0.35, 0.15 + (abs(smooth_slope) / (curr_close * 0.001 + 1e-5)) * 0.1)
+            bear_points += min(0.13, 0.05 + (abs(smooth_slope) / (curr_close * 0.001 + 1e-5)) * 0.08)
+            
+        # Volume Surge confirmation (0-15 points)
+        if vol_surge >= 1.25:
+            if bull_points > bear_points:
+                bull_points += 0.15
+            else:
+                bear_points += 0.15
             
         total = bull_points + bear_points
         norm_bull = bull_points / total if total > 0 else 0.5
@@ -310,10 +354,15 @@ class MomentumBrain:
             "rsi_fast": round(float(rsi_fast), 2),
             "rsi_mid": round(float(rsi_mid), 2),
             "rsi_slow": round(float(rsi_slow), 2),
+            "ma5": round(float(curr_ma5), 2),
+            "ma10": round(float(curr_ma10), 2),
             "fast_ema": round(float(curr_fast_ema), 2),
             "slow_ema": round(float(curr_slow_ema), 2),
+            "macd_dif": round(float(curr_dif), 2),
+            "macd_dea": round(float(curr_dea), 2),
             "macd_hist": round(float(curr_hist), 2),
             "smooth_slope": round(float(smooth_slope), 4),
+            "volume_surge": round(float(vol_surge), 2),
             "is_accelerating": bool(smooth_slope > 0),
         }
 
@@ -352,9 +401,9 @@ class VolatilityBrain:
 
 def evaluate_tri_brain_ensemble(df: pd.DataFrame, timeframe: str, macro_regime: str = "Range") -> Dict[str, Any]:
     """
-    Executes the Tri-Brain ensemble with 9-timeframe scaled parameters:
-    1. StatisticalBrain
-    2. MomentumBrain
+    Executes the Tri-Brain ensemble with 10-timeframe scaled parameters:
+    1. StatisticalBrain (with dynamic Bollinger expansion awareness)
+    2. MomentumBrain (with MA5, MA10, DIF, DEA, Volume surge)
     3. VolatilityBrain
     """
     cfg = TIMEFRAME_PARAMETERS.get(timeframe, TIMEFRAME_PARAMETERS["1h"])
@@ -362,8 +411,16 @@ def evaluate_tri_brain_ensemble(df: pd.DataFrame, timeframe: str, macro_regime: 
     # Run VolatilityBrain first to get BB and Squeeze
     vol_out = VolatilityBrain.evaluate(df, cfg["bb_period"], cfg["bb_std"], cfg["squeeze_loaded_bars"])
     
-    # Run StatisticalBrain with BB levels and macro regime
-    stat_out = StatisticalBrain.evaluate(df["close"].iloc[-1], vol_out["bb_upper"], vol_out["bb_lower"], macro_regime)
+    # Run StatisticalBrain with BB state, opening status, and direction
+    stat_out = StatisticalBrain.evaluate(
+        close=float(df["close"].iloc[-1]),
+        bb_upper=vol_out["bb_upper"],
+        bb_lower=vol_out["bb_lower"],
+        macro_regime=macro_regime,
+        bb_state=vol_out.get("bb_state", "NORMAL_RANGE"),
+        bb_is_opening=vol_out.get("bb_is_opening", False),
+        bb_direction=vol_out.get("bb_direction", "HORIZONTAL")
+    )
     
     # Run MomentumBrain with scaled RSI, EMA, MACD
     mom_out = MomentumBrain.evaluate(

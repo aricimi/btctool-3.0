@@ -153,23 +153,98 @@ def _synthesize_new_scenario(
     now: float
 ) -> Dict[str, Any]:
     """
-    Synthesizes all 10 screens into a coherent, multi-wave scenario:
-    - Screen 1: Macro Anchor (4h, 2h, 1h)
-    - Screen 2: Tactical Rotations (15m, 30m)
-    - Screen 3: Micro Snipers (1m, 3m, 5m)
-    - Screen 4: Orderbook walls & Liquidity Depth
+    Continuous Multi-Screen Kinetic Push vs Structural Barrier Engine:
+    1. Kinetic Push (Velocity Fuel):
+       - MA5 vs MA10 dynamic crossovers across tactical frames.
+       - Bollinger Band expansion rate (expanding open vs pinching).
+       - MACD DIF vs DEA and Histogram slope.
+       - Aggressive Taker Buy/Sell delta & L2 orderbook wall pressure.
+    2. Structural Barriers (Physical Walls):
+       - Overhead Ceiling = Nearest structural barrier (tactical BB uppers, ask walls).
+       - Downside Floor = Nearest structural barrier (tactical BB lowers, bid walls, swing wicks).
+    3. Wave Geometry:
+       - Projects dynamic Wave 1 amplitude ($ reach) and optimal entry pocket.
+       - Projects subsequent Wave 2 collision reaction (re-dip or bounce).
     """
-    # 1. Macro Anchor Analysis (4h, 2h, 1h)
+    # -------------------------------------------------------------
+    # 1. KINETIC PUSH (DIRECTIONAL VELOCITY FUEL)
+    # -------------------------------------------------------------
+    tactical_tfs = ["1m", "3m", "5m", "15m", "30m"]
+    
+    # A. MA(5) vs MA(10) Alignment across tactical screens
+    ma_points = 0.0
+    for tf in tactical_tfs:
+        ind = timeframe_cache.get(tf, {}).get("indicators", {})
+        ma5 = ind.get("ma5", current_price)
+        ma10 = ind.get("ma10", current_price)
+        if current_price > ma5 > ma10:
+            ma_points += 1.0
+        elif current_price < ma5 < ma10:
+            ma_points -= 1.0
+        elif ma5 > ma10:
+            ma_points += 0.5
+        elif ma5 < ma10:
+            ma_points -= 0.5
+    ma_velocity = ma_points / len(tactical_tfs)
+
+    # B. Bollinger Band Expansion & Opening Direction (1m, 3m, 5m)
+    bb_points = 0.0
+    micro_tfs = ["1m", "3m", "5m"]
+    for tf in micro_tfs:
+        ind = timeframe_cache.get(tf, {}).get("indicators", {})
+        bb_state = ind.get("bb_state", "NORMAL_RANGE")
+        is_opening = ind.get("bb_is_opening", False)
+        direction = ind.get("bb_direction", "HORIZONTAL")
+        
+        if bb_state == "EXPANDING_UP" or (is_opening and direction == "UPWARD"):
+            bb_points += 1.0
+        elif bb_state == "EXPANDING_DOWN" or (is_opening and direction == "DOWNWARD"):
+            bb_points -= 1.0
+        elif direction == "UPWARD":
+            bb_points += 0.4
+        elif direction == "DOWNWARD":
+            bb_points -= 0.4
+    bb_velocity = bb_points / len(micro_tfs)
+
+    # C. MACD DIF vs DEA & Momentum Acceleration (1m, 3m, 5m, 15m)
+    macd_points = 0.0
+    macd_tfs = ["1m", "3m", "5m", "15m"]
+    for tf in macd_tfs:
+        ind = timeframe_cache.get(tf, {}).get("indicators", {})
+        dif = ind.get("macd_dif", 0.0)
+        dea = ind.get("macd_dea", 0.0)
+        is_accel = ind.get("is_accelerating", False)
+        
+        if dif > dea and is_accel:
+            macd_points += 1.0
+        elif dif < dea and not is_accel:
+            macd_points -= 1.0
+        elif dif > dea:
+            macd_points += 0.5
+        elif dif < dea:
+            macd_points -= 0.5
+    macd_velocity = macd_points / len(macd_tfs)
+
+    # D. Live Orderbook Depth & Taker Flow Aggression
+    imbalance = float(orderbook_data.get("imbalance_ratio", 0.0))
+    taker_delta = float(derivatives_data.get("taker_delta", 0.0))
+    
+    # Synthesis of continuous Kinetic Push Velocity
+    v_kinetic = (
+        0.30 * ma_velocity +
+        0.25 * bb_velocity +
+        0.20 * macd_velocity +
+        0.15 * max(-1.0, min(1.0, taker_delta)) +
+        0.10 * max(-1.0, min(1.0, imbalance))
+    )
+    v_kinetic = max(-1.0, min(1.0, v_kinetic))
+
+    # Macro Trend Anchor (4h, 2h, 1h)
     sum_4h = timeframe_cache.get("4h", {})
     sum_2h = timeframe_cache.get("2h", {})
-    sum_1h = timeframe_cache.get("1h", {})
-
     reg_4h = sum_4h.get("pre_filter", {}).get("regime", "Range")
     mb_dir_4h = sum_4h.get("indicators", {}).get("bb_direction", "HORIZONTAL")
     mb_dir_2h = sum_2h.get("indicators", {}).get("bb_direction", "HORIZONTAL")
-    rsi_4h = sum_4h.get("indicators", {}).get("rsi_fast", 50.0)
-
-    # Dominant Macro Trend
     if reg_4h == "Trend Down" or mb_dir_4h == "DOWNWARD" or mb_dir_2h == "DOWNWARD":
         macro_bias = "BEARISH"
     elif reg_4h == "Trend Up" or mb_dir_4h == "UPWARD" or mb_dir_2h == "UPWARD":
@@ -177,125 +252,85 @@ def _synthesize_new_scenario(
     else:
         macro_bias = "RANGE"
 
-    # 2. Tactical & Micro Envelopes (5m, 3m, 1m)
+    # -------------------------------------------------------------
+    # 2. STRUCTURAL BARRIERS (PHYSICAL WALLS)
+    # -------------------------------------------------------------
     sum_5m = timeframe_cache.get("5m", {})
-    sum_3m = timeframe_cache.get("3m", {})
-    sum_1m = timeframe_cache.get("1m", {})
-
-    pct_b_5m = sum_5m.get("indicators", {}).get("pct_b", 0.5)
-    pct_b_15m = timeframe_cache.get("15m", {}).get("indicators", {}).get("pct_b", 0.5)
-    bb_upper_5m = sum_5m.get("indicators", {}).get("bb_upper", current_price + 250)
-    bb_lower_5m = sum_5m.get("indicators", {}).get("bb_lower", current_price - 250)
-    bb_mid_5m = sum_5m.get("indicators", {}).get("bb_middle", current_price)
-    bb_width_5m = sum_5m.get("indicators", {}).get("bb_bandwidth_pct", 0.3)
-
     atr_5m = sum_5m.get("indicators", {}).get("atr", 80.0)
-    atr_15m = timeframe_cache.get("15m", {}).get("indicators", {}).get("atr", 140.0)
+    if atr_5m <= 10.0:
+        atr_5m = 80.0
 
-    # 3. Orderbook Walls
-    mid_price = orderbook_data.get("mid_price", current_price)
-    imbalance = orderbook_data.get("imbalance_ratio", 0.0)
-    best_bid = orderbook_data.get("best_bid", current_price - 10)
-    best_ask = orderbook_data.get("best_ask", current_price + 10)
-
-    # -------------------------------------------------------------
-    # SCENARIO BRANCH 1: BEARISH REGIME WITH EXTENDED DIP
-    # (Price flushed below 5M lower band -> Relief Bounce -> Re-dip)
-    # -------------------------------------------------------------
-    if macro_bias == "BEARISH" and (pct_b_5m <= 0.30 or pct_b_15m <= 0.25):
-        headline = "Bearish Trend: Extreme Dip Relief Bounce Setting Up"
-        narrative = "Market is in a macro downtrend, but price is severely overextended below 5M/15M lower bands. Liquidations have washed out, creating an attractive short-term bounce opportunity before the next downtrend leg."
+    # Ceiling candidate levels (upper bands & ask walls)
+    ceilings = []
+    for tf in ["5m", "15m", "30m", "1h"]:
+        upper = timeframe_cache.get(tf, {}).get("indicators", {}).get("bb_upper")
+        if upper and upper > current_price + 30:
+            ceilings.append(upper)
+    best_ask = orderbook_data.get("best_ask", current_price + 50)
+    if best_ask > current_price + 30:
+        ceilings.append(best_ask + 1.5 * atr_5m)
         
-        # Wave 1: Relief Bounce
+    nearest_ceiling = min(ceilings) if ceilings else (current_price + 3.0 * atr_5m)
+
+    # Floor candidate levels (lower bands & bid walls)
+    floors = []
+    for tf in ["5m", "15m", "30m", "1h"]:
+        lower = timeframe_cache.get(tf, {}).get("indicators", {}).get("bb_lower")
+        if lower and lower < current_price - 30:
+            floors.append(lower)
+    best_bid = orderbook_data.get("best_bid", current_price - 50)
+    if best_bid < current_price - 30:
+        floors.append(best_bid - 1.5 * atr_5m)
+        
+    nearest_floor = max(floors) if floors else (current_price - 3.0 * atr_5m)
+
+    # -------------------------------------------------------------
+    # 3. DYNAMIC WAVE GEOMETRY & TARGET PROJECTION
+    # -------------------------------------------------------------
+    if v_kinetic >= 0.08:
         wave_1_dir = "LONG"
-        expected_amp = max(220.0, round(abs(bb_mid_5m - current_price), 0))
-        entry_low = round(current_price - 0.4 * atr_5m, 1)
-        entry_high = round(current_price + 0.2 * atr_5m, 1)
-        target_1 = round(current_price + expected_amp, 1)
-        invalidation = round(current_price - (0.9 * atr_5m), 1)
-
-        # Wave 2: Overhead Rejection & Re-Dip
-        wave_2_dir = "SHORT"
-        wave_2_amp = round(expected_amp * 0.85, 0)
-        wave_2_target = round(target_1 - wave_2_amp, 1)
-        wave_2_desc = f"Heavy ceiling expected around ${target_1:,.0f} (5M Middle Band / Overhead Resistance). Anticipate a -${wave_2_amp:.0f} re-dip back toward ${wave_2_target:,.0f} as the dominant downtrend reasserts."
-
-    # -------------------------------------------------------------
-    # SCENARIO BRANCH 2: BEARISH REGIME WITH BOUNCE EXHAUSTION
-    # (Price tested 5M mid/upper band in a downtrend -> Wave 1: Short continuation)
-    # -------------------------------------------------------------
-    elif macro_bias == "BEARISH" and pct_b_5m >= 0.60:
-        headline = "Bearish Trend: Relief Bounce Exhaustion / Breakdown Wave"
-        narrative = "Price has rallied back up into the 5M/15M overhead resistance ceiling in an established downtrend. Buyers are exhausting at resistance; expect the main bearish momentum wave to resume."
-        
+    elif v_kinetic <= -0.08:
         wave_1_dir = "SHORT"
-        expected_amp = max(250.0, round(abs(current_price - bb_lower_5m), 0))
-        entry_low = round(current_price - 0.2 * atr_5m, 1)
-        entry_high = round(current_price + 0.4 * atr_5m, 1)
+    else:
+        wave_1_dir = "LONG" if macro_bias != "BEARISH" else "SHORT"
+
+    if wave_1_dir == "LONG":
+        dist_to_wall = max(100.0, nearest_ceiling - current_price)
+        expected_amp = max(200.0, min(dist_to_wall, 2.5 * atr_5m))
+        expected_amp = round(expected_amp, 0)
+        
+        target_1 = round(current_price + expected_amp, 1)
+        entry_low = round(current_price - 0.35 * atr_5m, 1)
+        entry_high = round(current_price + 0.15 * atr_5m, 1)
+        invalidation = round(min(nearest_floor, current_price - 0.9 * atr_5m), 1)
+
+        wave_2_dir = "SHORT"
+        wave_2_amp = round(expected_amp * 0.65, 0)
+        wave_2_target = round(target_1 - wave_2_amp, 1)
+        wave_2_desc = f"Overhead resistance wall near ${target_1:,.0f} (${nearest_ceiling:,.0f}). Anticipate a -${wave_2_amp:.0f} re-dip cooling wave back toward ${wave_2_target:,.0f} once the push exhausts."
+        headline = f"Kinetic Push: Bullish Expansion (Velocity {v_kinetic:+.2f}) Toward ${target_1:,.0f}"
+        narrative = f"Tactical screens show fast momentum (MA5 > MA10) and expanding bands with {taker_delta:+.0%} taker flow aggression. Push driving toward the ${nearest_ceiling:,.0f} ceiling barrier."
+
+    else:
+        dist_to_wall = max(100.0, current_price - nearest_floor)
+        expected_amp = max(200.0, min(dist_to_wall, 2.5 * atr_5m))
+        expected_amp = round(expected_amp, 0)
+        
         target_1 = round(current_price - expected_amp, 1)
-        invalidation = round(current_price + (1.0 * atr_5m), 1)
+        entry_low = round(current_price - 0.15 * atr_5m, 1)
+        entry_high = round(current_price + 0.35 * atr_5m, 1)
+        invalidation = round(max(nearest_ceiling, current_price + 0.9 * atr_5m), 1)
 
         wave_2_dir = "LONG"
-        wave_2_amp = round(expected_amp * 0.6, 0)
+        wave_2_amp = round(expected_amp * 0.65, 0)
         wave_2_target = round(target_1 + wave_2_amp, 1)
-        wave_2_desc = f"Major liquidity pool and bids clustered near ${target_1:,.0f}. Once swept, expect a +${wave_2_amp:.0f} counter-reaction bounce toward ${wave_2_target:,.0f}."
+        wave_2_desc = f"Downside bid absorption pocket near ${target_1:,.0f} (${nearest_floor:,.0f}). Once limit orders absorb the sweep, anticipate a +${wave_2_amp:.0f} counter-reaction bounce toward ${wave_2_target:,.0f}."
+        headline = f"Kinetic Push: Bearish Leg (Velocity {v_kinetic:+.2f}) Toward ${target_1:,.0f}"
+        narrative = f"Tactical screens show downward momentum acceleration (MA5 < MA10) and bands pressing lower with {taker_delta:+.0%} taker sell pressure. Push running toward the ${nearest_floor:,.0f} support floor."
 
-    # -------------------------------------------------------------
-    # SCENARIO BRANCH 3: BULLISH REGIME WITH PULLBACK DIP
-    # (Price pulled back to support in an uptrend -> Wave 1: Long Expansion)
-    # -------------------------------------------------------------
-    elif macro_bias == "BULLISH" and pct_b_5m <= 0.45:
-        headline = "Bullish Trend: Support Retest & Expansion Wave"
-        narrative = "Macro uptrend remains fully intact. Price has pulled back to test 5M/15M support with healthy orderbook bids. High probability trend continuation wave setting up."
-        
-        wave_1_dir = "LONG"
-        expected_amp = max(280.0, round(abs(bb_upper_5m - current_price), 0))
-        entry_low = round(current_price - 0.4 * atr_5m, 1)
-        entry_high = round(current_price + 0.2 * atr_5m, 1)
-        target_1 = round(current_price + expected_amp, 1)
-        invalidation = round(current_price - (0.8 * atr_5m), 1)
+    prob_up_calc = round(max(0.15, min(0.85, 0.50 + (v_kinetic * 0.35))), 3)
+    prob_down_calc = round(1.0 - prob_up_calc, 3)
 
-        wave_2_dir = "SHORT"
-        wave_2_amp = round(expected_amp * 0.5, 0)
-        wave_2_target = round(target_1 - wave_2_amp, 1)
-        wave_2_desc = f"Upper band expansion target around ${target_1:,.0f}. Profit-taking likely to produce a brief -${wave_2_amp:.0f} cooling consolidation before further macro continuation."
-
-    # -------------------------------------------------------------
-    # SCENARIO BRANCH 4: WIDE RANGE BOX CONSOLIDATION
-    # (Horizontal corridor -> Mean reversion between boundaries)
-    # -------------------------------------------------------------
-    else:
-        is_near_floor = pct_b_5m <= 0.50
-        if is_near_floor:
-            headline = "Range Market: Support Floor Bounce Toward Channel Roof"
-            narrative = f"BTC is trading in a bounded consolidation corridor (${bb_lower_5m:,.0f} – ${bb_upper_5m:,.0f}). Price is resting at the channel floor; expect a mean-reversion wave toward the ceiling."
-            wave_1_dir = "LONG"
-            expected_amp = max(200.0, round(bb_upper_5m - current_price, 0))
-            entry_low = round(bb_lower_5m, 1)
-            entry_high = round(current_price + 0.2 * atr_5m, 1)
-            target_1 = round(bb_upper_5m - 0.2 * atr_5m, 1)
-            invalidation = round(bb_lower_5m - (0.8 * atr_5m), 1)
-
-            wave_2_dir = "SHORT"
-            wave_2_amp = round(expected_amp * 0.7, 0)
-            wave_2_target = round(target_1 - wave_2_amp, 1)
-            wave_2_desc = f"Channel ceiling at ${target_1:,.0f} serves as major resistance. Expect a fade/rejection wave of -${wave_2_amp:.0f} back toward ${wave_2_target:,.0f}."
-        else:
-            headline = "Range Market: Channel Roof Fade Toward Support Floor"
-            narrative = f"BTC is testing the upper boundary of its horizontal range (${bb_lower_5m:,.0f} – ${bb_upper_5m:,.0f}). Overhead ask resistance is dense; expect a rotational wave back to the floor."
-            wave_1_dir = "SHORT"
-            expected_amp = max(200.0, round(current_price - bb_lower_5m, 0))
-            entry_low = round(current_price - 0.2 * atr_5m, 1)
-            entry_high = round(bb_upper_5m, 1)
-            target_1 = round(bb_lower_5m + 0.2 * atr_5m, 1)
-            invalidation = round(bb_upper_5m + (0.8 * atr_5m), 1)
-
-            wave_2_dir = "LONG"
-            wave_2_amp = round(expected_amp * 0.7, 0)
-            wave_2_target = round(target_1 + wave_2_amp, 1)
-            wave_2_desc = f"Channel floor at ${target_1:,.0f} provides heavy bid absorption. Expect a +${wave_2_amp:.0f} bounce back toward mid-range."
-
-    # Build scenario payload
     scenario_id = f"scen_{int(now)}"
     scenario_payload = {
         "scenario_id": scenario_id,
@@ -303,6 +338,11 @@ def _synthesize_new_scenario(
         "baseline_price": current_price,
         "current_price": current_price,
         "macro_bias": macro_bias,
+        "kinetic_velocity": round(v_kinetic, 3),
+        "prob_up": prob_up_calc,
+        "prob_down": prob_down_calc,
+        "prob_up_pct": round(prob_up_calc * 100, 1),
+        "prob_down_pct": round(prob_down_calc * 100, 1),
         "headline": headline,
         "narrative": narrative,
         "invalidation_floor": invalidation,
@@ -311,7 +351,7 @@ def _synthesize_new_scenario(
         "action_mode": "ENTER_NOW" if wave_1_dir == "LONG" else "ENTER_SHORT",
         "progress_pct": 0.0,
         "realized_dollars": 0.0,
-        "guidance": f"🟢 IN OPTIMAL ENTRY ZONE (${current_price:,.1f}) — Risk/Reward optimal for {wave_1_dir} targeting ${target_1:,.1f} (+${expected_amp:.0f}).",
+        "guidance": f"🟢 IN OPTIMAL ENTRY ZONE (${current_price:,.1f}) — Kinetic velocity ({v_kinetic:+.2f}) targeting ${target_1:,.1f} ({'+' if wave_1_dir == 'LONG' else '-'}${expected_amp:.0f}).",
         "wave_1": {
             "name": f"Immediate {wave_1_dir} Wave",
             "direction": wave_1_dir,
@@ -331,9 +371,8 @@ def _synthesize_new_scenario(
         "multi_screen_consensus": {
             "screens_analyzed": 10,
             "macro_anchor": f"4H/2H: {macro_bias}",
-            "tactical_5m": f"5M %B: {pct_b_5m:.2f} · BB Width: {bb_width_5m:.2f}%",
-            "orderbook_bias": f"Imbalance: {imbalance:+.1%} · Mid: ${mid_price:,.1f}",
+            "kinetic_push": f"Velocity: {v_kinetic:+.2f} (MA5/10: {ma_velocity:+.2f} · BB: {bb_velocity:+.2f})",
+            "orderbook_bias": f"Imbalance: {imbalance:+.1%} · Taker Δ: {taker_delta:+.1%}",
         }
     }
-
     return scenario_payload

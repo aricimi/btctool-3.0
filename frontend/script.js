@@ -298,7 +298,19 @@ function renderSummary(data) {
 
     document.getElementById("mom-score").textContent = `Bull: ${Math.round(mom.bull_score * 100)}% / Bear: ${Math.round(mom.bear_score * 100)}%`;
     document.getElementById("rsi-val").textContent = `${mom.rsi_fast || "--"} / ${mom.rsi_mid || "--"} / ${mom.rsi_slow || "--"}`;
-    document.getElementById("macd-slope-val").textContent = `${mom.is_accelerating ? "▲ Accelerating" : "▼ Decelerating"} (${mom.smooth_slope > 0 ? "+" : ""}${mom.smooth_slope})`;
+    const difDeaStr = (mom.macd_dif !== undefined && mom.macd_dea !== undefined) ? ` · DIF: ${mom.macd_dif} / DEA: ${mom.macd_dea}` : "";
+    document.getElementById("macd-slope-val").textContent = `${mom.is_accelerating ? "▲ Expanding" : "▼ Decelerating"}${difDeaStr}`;
+    
+    const maCrossEl = document.getElementById("ma-cross-val");
+    if (maCrossEl) {
+        maCrossEl.textContent = (mom.ma5 && mom.ma10) ? `$${mom.ma5.toLocaleString()} / $${mom.ma10.toLocaleString()} (${mom.ma5 >= mom.ma10 ? "MA5>MA10 ▲" : "MA5<MA10 ▼"})` : "--";
+        maCrossEl.style.color = (mom.ma5 && mom.ma10 && mom.ma5 >= mom.ma10) ? "var(--accent-green)" : "var(--accent-red)";
+    }
+    const volSurgeEl = document.getElementById("vol-surge-val");
+    if (volSurgeEl) {
+        volSurgeEl.textContent = mom.volume_surge ? `${mom.volume_surge.toFixed(2)}x (vs 10-bar avg)` : "--";
+        volSurgeEl.style.color = (mom.volume_surge >= 1.25) ? "var(--accent-green)" : "var(--text-muted)";
+    }
 
     document.getElementById("vol-score").textContent = `State: ${vol.squeeze_state || "--"}`;
     const bollInfo = vol.bb_bandwidth_pct !== undefined ? ` · BB Width: ${vol.bb_bandwidth_pct}% (${vol.bb_direction})` : "";

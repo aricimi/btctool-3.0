@@ -121,6 +121,12 @@ async def generate_timeframe_summary(timeframe: str, macro_4h_regime: str = "Ran
             "fast_ema": brain_out["momentum"]["fast_ema"],
             "slow_ema": brain_out["momentum"]["slow_ema"],
             "macd_hist": brain_out["momentum"]["macd_hist"],
+            "macd_dif": brain_out["momentum"].get("macd_dif", 0.0),
+            "macd_dea": brain_out["momentum"].get("macd_dea", 0.0),
+            "is_accelerating": brain_out["momentum"].get("is_accelerating", False),
+            "ma5": brain_out["momentum"].get("ma5", current_price),
+            "ma10": brain_out["momentum"].get("ma10", current_price),
+            "volume_surge": brain_out["momentum"].get("volume_surge", 1.0),
             "pct_b": brain_out["statistical"]["pct_b"],
             "atr": atr_val,
             "adx": round(curr_adx, 2),
@@ -146,6 +152,12 @@ async def generate_timeframe_summary(timeframe: str, macro_4h_regime: str = "Ran
             derivatives_data=deriv_data
         )
         summary["intraday_scenario"] = scenario
+        # Synchronize Card 2 Probability with the Master Kinetic Engine
+        if scenario and "prob_up" in scenario:
+            summary["prob_up"] = scenario["prob_up"]
+            summary["prob_down"] = scenario["prob_down"]
+            summary["prob_up_pct"] = scenario["prob_up_pct"]
+            summary["prob_down_pct"] = scenario["prob_down_pct"]
     except Exception as e:
         logger.error(f"Error simulating intraday scenario: {e}")
 
@@ -182,6 +194,11 @@ async def get_summary_for_timeframe(timeframe: str) -> Dict[str, Any]:
                     derivatives_data=summary.get("derivatives", {})
                 )
                 summary["intraday_scenario"] = scenario
+                if scenario and "prob_up" in scenario:
+                    summary["prob_up"] = scenario["prob_up"]
+                    summary["prob_down"] = scenario["prob_down"]
+                    summary["prob_up_pct"] = scenario["prob_up_pct"]
+                    summary["prob_down_pct"] = scenario["prob_down_pct"]
             except Exception as e:
                 logger.error(f"Error updating scenario in get_summary: {e}")
         
