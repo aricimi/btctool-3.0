@@ -183,3 +183,5 @@ c:\gemini proyect\btctool 3.0\
 - **2026-10-18:** Automated Render Web Service creation (`srv-dbafgs6q1p3s73bfumcg`) and deployment. Build and deploy succeeded.
 - **2026-10-18:** Automated UptimeRobot monitor creation (`804325389`) pinging `/health` every 5 minutes for 24/7 keep-alive.
 - **2026-10-18:** Live system verified on `https://btctool-3-0.onrender.com`.
+- **2026-10-18:** Upgraded engine with **Timeframe Sovereignty & Zero Macro Vetoes**: Lower timeframes (1M-30M) have full local autonomy to trade counter-trend momentum and dip bounces.
+- **2026-10-18:** Implemented **Volatility-Adaptive Target Scaler with Institutional Profit Floors** (min +0.25% on 1M/5M, min +0.40% on 15M/30M, min +0.60% on 1H+) eliminating un-tradable micro-gains.

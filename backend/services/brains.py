@@ -135,42 +135,35 @@ class StatisticalBrain:
         pct_b = (close - bb_lower) / span if span > 0 else 0.5
         pct_b = max(0.0, min(1.0, pct_b))
         
-        # Default baseline scores based on %B
-        # Dip into lower band (%B <= 0.20) suggests mean-reversion long bounce
-        # Push into upper band (%B >= 0.80) suggests mean-reversion short fade
-        bull_score = 0.50 + (0.50 - pct_b) * 0.6
-        bear_score = 0.50 + (pct_b - 0.50) * 0.6
-        regime_note = "Normal envelope"
+        # Baseline scores strictly based on local %B envelope
+        bull_score = 0.50 + (0.50 - pct_b) * 0.7
+        bear_score = 0.50 + (pct_b - 0.50) * 0.7
+        regime_note = "Local %B Envelope"
         
-        # Institutional Upgrade: Macro-aware resistance/support
+        # Soft macro context advisory (zero hard veto)
         if macro_regime == "Trend Down":
-            if pct_b >= 0.58:
-                # Bearish Retest Resistance: Do NOT buy the push; high short probability
-                bull_score = 0.20
-                bear_score = 0.65
-                regime_note = "Bearish Retest Resistance Zone (%B >= 0.58 in 4H Downtrend)"
+            if pct_b >= 0.60:
+                bear_score += 0.08
+                bull_score -= 0.08
+                regime_note = "Local Ceiling (4H Downtrend context)"
             elif pct_b <= 0.20:
-                # Counter-trend oversold bounce only
-                bull_score = 0.45
-                bear_score = 0.45
-                regime_note = "Oversold Wick in Downtrend"
+                bull_score += 0.08
+                bear_score -= 0.08
+                regime_note = "Local Oversold Wick Support"
         elif macro_regime == "Trend Up":
-            if pct_b <= 0.42:
-                # Bullish Dip Support: High long probability, buy the dip
-                bull_score = 0.68
-                bear_score = 0.20
-                regime_note = "Bullish Dip Support Zone (%B <= 0.42 in 4H Uptrend)"
+            if pct_b <= 0.40:
+                bull_score += 0.08
+                bear_score -= 0.08
+                regime_note = "Local Dip Support (4H Uptrend context)"
             elif pct_b >= 0.80:
-                bull_score = 0.50
-                bear_score = 0.35
-                regime_note = "Upper Band Expansion in Uptrend"
+                regime_note = "Local Upper Expansion"
                 
         return {
-            "bull_score": round(max(0.05, min(0.95, bull_score)), 4),
-            "bear_score": round(max(0.05, min(0.95, bear_score)), 4),
-            "pct_b": round(pct_b, 4),
-            "bb_upper": round(bb_upper, 2),
-            "bb_lower": round(bb_lower, 2),
+            "bull_score": round(float(max(0.05, min(0.95, bull_score))), 4),
+            "bear_score": round(float(max(0.05, min(0.95, bear_score))), 4),
+            "pct_b": round(float(pct_b), 4),
+            "bb_upper": round(float(bb_upper), 2),
+            "bb_lower": round(float(bb_lower), 2),
             "regime_note": regime_note,
         }
 
