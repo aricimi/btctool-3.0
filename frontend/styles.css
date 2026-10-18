@@ -325,6 +325,68 @@ body {
 .param-name { color: var(--text-muted); }
 .param-val { font-weight: 600; }
 
+/* 24/7 Multi-Screen Scenario Simulator Components */
+.scenario-progress-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #0B101E;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+}
+
+.scenario-progress-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    font-weight: 600;
+}
+
+.scenario-wave2-box {
+    background: rgba(0, 229, 255, 0.04);
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.scenario-wave2-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--accent-cyan);
+}
+
+.wave2-text {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--text-main);
+}
+
+.scenario-consensus-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    padding-top: 4px;
+}
+
+.consensus-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--text-muted);
+}
+
 /* ML Card */
 .prob-bars {
     display: flex;

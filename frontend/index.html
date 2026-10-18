@@ -49,29 +49,49 @@
 
         <!-- Main Dashboard Grid -->
         <main class="dashboard-grid">
-            <!-- Card 1: Actionable Directive & Execution Matrix -->
+            <!-- Card 1: 24/7 Multi-Screen Scenario Simulator -->
             <section class="card directive-card">
                 <div class="card-header">
-                    <h2 id="card1-title">TRADING DIRECTIVE & EXECUTION PLAN</h2>
-                    <span id="scenario-tag" class="pill">Scenario --</span>
+                    <h2 id="card1-title">24/7 MULTI-SCREEN SCENARIO SIMULATOR</h2>
+                    <span id="scenario-tag" class="pill">10 Screens Synthesized</span>
                 </div>
                 
                 <div class="directive-hero">
-                    <div id="directive-action" class="action-banner">INITIALIZING DIRECTIVE...</div>
-                    <div id="directive-role" class="timeframe-role">--</div>
+                    <div id="directive-action" class="action-banner">INITIALIZING SIMULATOR...</div>
+                    <div id="directive-role" class="timeframe-role">Synthesizing 10 Timeframes & Orderbook Depth...</div>
                 </div>
 
                 <div class="triggers-grid">
-                    <div class="trigger-box long-box">
-                        <span id="long-box-label" class="trigger-label">LONG ENTRY TRIGGER</span>
+                    <div class="trigger-box long-box" id="long-trigger-box">
+                        <span id="long-box-label" class="trigger-label">WAVE 1: IMMEDIATE PATH</span>
                         <span id="long-trigger" class="trigger-val">$--</span>
                         <span id="long-box-sub" class="sub-label">Distinct Structural Level</span>
                     </div>
-                    <div class="trigger-box short-box">
-                        <span id="short-box-label" class="trigger-label">SHORT ENTRY TRIGGER</span>
+                    <div class="trigger-box short-box" id="short-trigger-box">
+                        <span id="short-box-label" class="trigger-label">TARGET CEILING</span>
                         <span id="short-trigger" class="trigger-val">$--</span>
                         <span id="short-box-sub" class="sub-label">Distinct Breakdown Level</span>
                     </div>
+                </div>
+
+                <!-- Scenario Live Wave Progress -->
+                <div class="scenario-progress-container" id="scenario-progress-wrap">
+                    <div class="scenario-progress-header">
+                        <span id="scenario-status-label" class="text-cyan">STATUS: SCANNING</span>
+                        <span id="scenario-progress-label">Progress: 0.0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div id="scenario-progress-bar" class="progress-fill green-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Subsequent Wave 2 Projection -->
+                <div class="scenario-wave2-box" id="scenario-wave2-box">
+                    <div class="scenario-wave2-title">
+                        <span>SUBSEQUENT WAVE 2 (WHAT HAPPENS NEXT)</span>
+                        <span id="wave2-amp-tag" class="pill">--</span>
+                    </div>
+                    <div id="wave2-desc" class="wave2-text">Synthesizing subsequent liquidity reaction...</div>
                 </div>
 
                 <div class="execution-parameters">
@@ -95,6 +115,13 @@
                         <span id="param-name-5" class="param-name">ATR Multiple Standard:</span>
                         <span id="atr-multiple-val" class="param-val">--</span>
                     </div>
+                </div>
+
+                <!-- Multi-Screen Consensus Summary Bar -->
+                <div class="scenario-consensus-bar" id="scenario-consensus-bar">
+                    <span class="consensus-chip" id="consensus-macro">Macro: --</span>
+                    <span class="consensus-chip" id="consensus-tactical">Tactical: --</span>
+                    <span class="consensus-chip" id="consensus-ob">Orderbook: --</span>
                 </div>
             </section>
 

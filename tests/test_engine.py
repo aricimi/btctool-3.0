@@ -17,6 +17,7 @@ from backend.services.brains import (
 )
 from backend.services.orderbook import _calc_weighted_depth
 from backend.services.decision_matrix import compute_trade_plan, calculate_cross_timeframe_alignment
+from backend.services.scenario_simulator import simulate_intraday_scenario
 
 class TestBtcToolEngine(unittest.TestCase):
 
@@ -209,6 +210,41 @@ class TestBtcToolEngine(unittest.TestCase):
         self.assertEqual(align["dominant_direction"], "BULLISH")
         self.assertGreaterEqual(align["dominant_count"], 7)
         self.assertEqual(align["alignment_status"], "STRONG CONFLUENCE")
+
+    def test_simulate_intraday_scenario_bearish_relief_bounce(self):
+        # 4H is in downtrend, 5M is washed out below lower band
+        tf_cache = {
+            "4h": {"pre_filter": {"regime": "Trend Down"}, "indicators": {"bb_direction": "DOWNWARD"}},
+            "2h": {"indicators": {"bb_direction": "DOWNWARD"}},
+            "5m": {
+                "indicators": {
+                    "pct_b": 0.20,
+                    "bb_lower": 80700.0,
+                    "bb_middle": 81100.0,
+                    "bb_upper": 81500.0,
+                    "bb_bandwidth_pct": 0.40,
+                    "atr": 100.0,
+                }
+            },
+            "15m": {"indicators": {"pct_b": 0.22, "atr": 150.0}}
+        }
+        orderbook = {"mid_price": 80800.0, "imbalance_ratio": 0.15}
+        derivatives = {"funding_rate_pct": 0.01}
+
+        scen = simulate_intraday_scenario(
+            current_price=80800.0,
+            timeframe_cache=tf_cache,
+            orderbook_data=orderbook,
+            derivatives_data=derivatives
+        )
+
+        self.assertEqual(scen["macro_bias"], "BEARISH")
+        self.assertIn("Relief Bounce", scen["headline"])
+        self.assertEqual(scen["wave_1"]["direction"], "LONG")
+        self.assertEqual(scen["wave_2"]["direction"], "SHORT")
+        self.assertGreater(scen["wave_1"]["target_price"], 80800.0)
+        self.assertLess(scen["invalidation_floor"], 80800.0)
+        self.assertGreater(scen["wave_1"]["expected_amplitude_dollars"], 200.0)
 
 if __name__ == "__main__":
     unittest.main()

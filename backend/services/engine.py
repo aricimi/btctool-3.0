@@ -16,6 +16,7 @@ from backend.services.brains import evaluate_tri_brain_ensemble, calc_adx
 from backend.services.ml_learner import predict_calibrated_probability
 from backend.services.pre_filter import evaluate_derivatives_pre_filter
 from backend.services.decision_matrix import compute_trade_plan, calculate_cross_timeframe_alignment
+from backend.services.scenario_simulator import simulate_intraday_scenario, get_active_scenario
 
 logger = logging.getLogger("btctool.engine")
 
@@ -136,6 +137,18 @@ async def generate_timeframe_summary(timeframe: str, macro_4h_regime: str = "Ran
         }
     }
     
+    # 8. 24/7 Multi-Screen Intraday Scenario Simulation
+    try:
+        scenario = simulate_intraday_scenario(
+            current_price=current_price,
+            timeframe_cache=_timeframe_cache,
+            orderbook_data=ob_data,
+            derivatives_data=deriv_data
+        )
+        summary["intraday_scenario"] = scenario
+    except Exception as e:
+        logger.error(f"Error simulating intraday scenario: {e}")
+
     _timeframe_cache[timeframe] = summary
     return summary
 
@@ -160,6 +173,17 @@ async def get_summary_for_timeframe(timeframe: str) -> Dict[str, Any]:
     alignment = calculate_cross_timeframe_alignment(_timeframe_cache)
     if summary:
         summary["cross_tf_alignment"] = alignment
+        if "current_price" in summary:
+            try:
+                scenario = simulate_intraday_scenario(
+                    current_price=summary["current_price"],
+                    timeframe_cache=_timeframe_cache,
+                    orderbook_data=summary.get("orderbook", {}),
+                    derivatives_data=summary.get("derivatives", {})
+                )
+                summary["intraday_scenario"] = scenario
+            except Exception as e:
+                logger.error(f"Error updating scenario in get_summary: {e}")
         
     return summary or {"error": "Failed to generate market summary"}
 

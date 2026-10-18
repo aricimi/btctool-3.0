@@ -88,9 +88,20 @@ async def get_summary(timeframe: str = Query(default="1h", description="Timefram
 
 @app.get("/btc/cross-alignment")
 async def get_cross_alignment():
-    """Returns 9-timeframe consensus alignment score."""
+    """Returns 10-timeframe consensus alignment score."""
     alignment = calculate_cross_timeframe_alignment(_timeframe_cache)
     return alignment
+
+@app.get("/btc/scenario")
+async def get_intraday_scenario_endpoint():
+    """Returns the persistent 24/7 multi-screen intraday market scenario."""
+    from backend.services.scenario_simulator import get_active_scenario
+    scen = get_active_scenario()
+    if not scen:
+        summary = await get_summary_for_timeframe("5m")
+        from backend.services.scenario_simulator import get_active_scenario
+        scen = get_active_scenario()
+    return scen or {"status": "INITIALIZING", "headline": "Synthesizing all 10 screens..."}
 
 # Frontend Static Files
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")

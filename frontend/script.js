@@ -86,52 +86,130 @@ function renderSummary(data) {
         squeezeBadge.textContent = data.indicators.squeeze_badge;
     }
 
-    // 2. Directive Card
+    // 2. Directive Card / 24/7 Scenario Simulator
+    const scen = data.intraday_scenario;
     const plan = data.trade_plan || {};
     const actionEl = document.getElementById("directive-action");
-    if (actionEl) {
-        actionEl.textContent = plan.action || "SCANNING...";
-        if (plan.action_type === "BUY" || plan.action_type === "BUY_LIMIT") {
-            actionEl.style.color = "var(--accent-green)";
-            actionEl.style.borderColor = "rgba(0, 255, 163, 0.4)";
-            actionEl.style.background = "rgba(0, 255, 163, 0.08)";
-        } else if (plan.action_type === "SHORT" || plan.action_type === "SELL_LIMIT") {
-            actionEl.style.color = "var(--accent-red)";
-            actionEl.style.borderColor = "rgba(255, 59, 105, 0.4)";
-            actionEl.style.background = "rgba(255, 59, 105, 0.08)";
-        } else if (plan.action_type === "WAIT") {
-            actionEl.style.color = "#ffb020";
-            actionEl.style.borderColor = "rgba(255, 176, 32, 0.4)";
-            actionEl.style.background = "rgba(255, 176, 32, 0.12)";
-        } else {
-            actionEl.style.color = "var(--accent-cyan)";
-            actionEl.style.borderColor = "rgba(0, 229, 255, 0.4)";
-            actionEl.style.background = "rgba(0, 229, 255, 0.08)";
-        }
-    }
-
     const scenarioTag = document.getElementById("scenario-tag");
-    if (scenarioTag) scenarioTag.textContent = plan.scenario || "Scenario Active";
-
     const roleEl = document.getElementById("directive-role");
-    if (roleEl) {
-        const confluenceInfo = plan.four_pillars ? ` · Pillars: ${plan.four_pillars.confluence_summary}` : "";
-        roleEl.textContent = `Timeframe: ${data.timeframe.toUpperCase()}${confluenceInfo}`;
-    }
-
     const card1Title = document.getElementById("card1-title");
     const longBoxLabel = document.getElementById("long-box-label");
     const shortBoxLabel = document.getElementById("short-box-label");
     const longBoxSub = document.getElementById("long-box-sub");
     const shortBoxSub = document.getElementById("short-box-sub");
+    const longTrigger = document.getElementById("long-trigger");
+    const shortTrigger = document.getElementById("short-trigger");
     const pName1 = document.getElementById("param-name-1");
     const pName2 = document.getElementById("param-name-2");
     const pName3 = document.getElementById("param-name-3");
     const pName4 = document.getElementById("param-name-4");
     const pName5 = document.getElementById("param-name-5");
     const stopLossEl = document.getElementById("stop-loss-val");
+    const target1El = document.getElementById("target1-val");
+    const target2El = document.getElementById("target2-val");
+    const rrRatioEl = document.getElementById("rr-ratio-val");
+    const atrMultipleEl = document.getElementById("atr-multiple-val");
 
-    if (plan.is_roadmap) {
+    // Scenario-specific elements
+    const scenStatusLabel = document.getElementById("scenario-status-label");
+    const scenProgressLabel = document.getElementById("scenario-progress-label");
+    const scenProgressBar = document.getElementById("scenario-progress-bar");
+    const wave2AmpTag = document.getElementById("wave2-amp-tag");
+    const wave2Desc = document.getElementById("wave2-desc");
+    const consensusMacro = document.getElementById("consensus-macro");
+    const consensusTactical = document.getElementById("consensus-tactical");
+    const consensusOb = document.getElementById("consensus-ob");
+
+    if (scen && scen.wave_1) {
+        // --- 24/7 MULTI-SCREEN SCENARIO SIMULATOR MODE ---
+        if (card1Title) card1Title.textContent = "24/7 MULTI-SCREEN SCENARIO SIMULATOR";
+        if (scenarioTag) scenarioTag.textContent = `${scen.macro_bias || "RANGE"} REGIME`;
+
+        if (actionEl) {
+            actionEl.textContent = scen.guidance || scen.headline;
+            const mode = scen.action_mode || "";
+            if (mode === "ENTER_NOW" || scen.status === "OPTIMAL_ENTRY_ZONE") {
+                actionEl.style.color = "var(--accent-green)";
+                actionEl.style.borderColor = "rgba(0, 255, 163, 0.4)";
+                actionEl.style.background = "rgba(0, 255, 163, 0.08)";
+            } else if (mode === "ENTER_SHORT") {
+                actionEl.style.color = "var(--accent-red)";
+                actionEl.style.borderColor = "rgba(255, 59, 105, 0.4)";
+                actionEl.style.background = "rgba(255, 59, 105, 0.08)";
+            } else if (mode === "TIGHTEN_STOPS" || scen.status === "EXHAUSTION_WARNING") {
+                actionEl.style.color = "#ffb020";
+                actionEl.style.borderColor = "rgba(255, 176, 32, 0.4)";
+                actionEl.style.background = "rgba(255, 176, 32, 0.12)";
+            } else if (mode === "TAKE_PROFIT" || scen.status === "TARGET_REACHED") {
+                actionEl.style.color = "var(--accent-cyan)";
+                actionEl.style.borderColor = "rgba(0, 229, 255, 0.4)";
+                actionEl.style.background = "rgba(0, 229, 255, 0.08)";
+            } else {
+                actionEl.style.color = "var(--accent-cyan)";
+                actionEl.style.borderColor = "rgba(0, 229, 255, 0.4)";
+                actionEl.style.background = "rgba(0, 229, 255, 0.08)";
+            }
+        }
+
+        if (roleEl) {
+            roleEl.textContent = `Scenario: ${scen.headline} (Screen: ${data.timeframe.toUpperCase()})`;
+        }
+
+        const w1 = scen.wave_1;
+        const w2 = scen.wave_2;
+
+        if (longBoxLabel) longBoxLabel.textContent = `WAVE 1: ${w1.direction} MOVE`;
+        if (longTrigger) longTrigger.textContent = `${w1.direction === "SHORT" ? "-" : "+"}$${Number(w1.expected_amplitude_dollars).toFixed(0)}`;
+        if (longBoxSub) {
+            const entry0 = w1.entry_zone ? Number(w1.entry_zone[0]).toLocaleString() : "--";
+            const entry1 = w1.entry_zone ? Number(w1.entry_zone[1]).toLocaleString() : "--";
+            longBoxSub.textContent = `Optimal Entry: $${entry0} – $${entry1}`;
+        }
+
+        if (shortBoxLabel) shortBoxLabel.textContent = "TARGET CEILING (TP ZONE)";
+        if (shortTrigger) shortTrigger.textContent = `$${Number(w1.target_price).toLocaleString()}`;
+        if (shortBoxSub) shortBoxSub.textContent = `Invalidation Risk Floor: $${Number(scen.invalidation_floor).toLocaleString()}`;
+
+        // Progress Bar
+        const progPct = scen.progress_pct || 0;
+        const realDol = scen.realized_dollars || 0;
+        if (scenStatusLabel) scenStatusLabel.textContent = `STATE: ${(scen.status || "").replace(/_/g, " ")}`;
+        if (scenProgressLabel) scenProgressLabel.textContent = `Progress: ${progPct}% (${realDol >= 0 ? "+" : ""}$${realDol.toFixed(0)})`;
+        if (scenProgressBar) {
+            scenProgressBar.style.width = `${Math.min(100, Math.max(0, progPct))}%`;
+            scenProgressBar.className = `progress-fill ${w1.direction === "SHORT" ? "red-fill" : "green-fill"}`;
+        }
+
+        // Wave 2 Box
+        if (wave2AmpTag && w2) wave2AmpTag.textContent = `Wave 2: ${w2.direction} to $${Number(w2.expected_target).toLocaleString()}`;
+        if (wave2Desc && w2) wave2Desc.textContent = w2.description || "Synthesizing subsequent trajectory...";
+
+        // Parameters
+        if (pName1) pName1.textContent = "Invalidation (Stop Loss):";
+        if (stopLossEl) {
+            stopLossEl.textContent = `$${Number(scen.invalidation_floor).toLocaleString()}`;
+            stopLossEl.className = "param-val text-red font-bold";
+        }
+
+        if (pName2) pName2.textContent = "Wave 1 Target Ceiling:";
+        if (target1El) target1El.textContent = `$${Number(w1.target_price).toLocaleString()}`;
+
+        if (pName3) pName3.textContent = "Expected Amplitude:";
+        if (target2El) target2El.textContent = `+$${Number(w1.expected_amplitude_dollars).toFixed(0)} Move`;
+
+        if (pName4) pName4.textContent = "Risk : Reward Ratio:";
+        if (rrRatioEl) rrRatioEl.textContent = w1.risk_reward_ratio || "--";
+
+        if (pName5) pName5.textContent = "Active Screen Focus:";
+        if (atrMultipleEl) atrMultipleEl.textContent = `${data.timeframe.toUpperCase()} (10-Screen Live Consensus)`;
+
+        // Consensus summary chips
+        const mc = scen.multi_screen_consensus || {};
+        if (consensusMacro) consensusMacro.textContent = mc.macro_anchor || "Macro: --";
+        if (consensusTactical) consensusTactical.textContent = mc.tactical_5m || "Tactical: --";
+        if (consensusOb) consensusOb.textContent = mc.orderbook_bias || "Orderbook: --";
+
+    } else if (plan.is_roadmap) {
         // Strategic Roadmap Mode (1W, 1D, 4H)
         if (card1Title) card1Title.textContent = "STRATEGIC ROADMAP & VOLATILITY RADAR";
         if (longBoxLabel) longBoxLabel.textContent = "CORRIDOR FLOOR (SUPPORT)";
@@ -146,22 +224,22 @@ function renderSummary(data) {
         }
 
         if (pName2) pName2.textContent = "Expected Volatility (%):";
-        document.getElementById("target1-val").textContent = `±${plan.expected_vol_pct}%`;
+        if (target1El) target1El.textContent = `±${plan.expected_vol_pct}%`;
 
         if (pName3) pName3.textContent = "Expected Volatility ($):";
-        document.getElementById("target2-val").textContent = `±$${Number(plan.expected_vol_dollars).toLocaleString()}`;
+        if (target2El) target2El.textContent = `±$${Number(plan.expected_vol_dollars).toLocaleString()}`;
 
         if (pName4) pName4.textContent = "4-Pillar Confluence:";
-        document.getElementById("rr-ratio-val").textContent = plan.four_pillars ? plan.four_pillars.confluence_summary : "Verified";
+        if (rrRatioEl) rrRatioEl.textContent = plan.four_pillars ? plan.four_pillars.confluence_summary : "Verified";
 
         if (pName5) pName5.textContent = "Trading Corridor:";
-        document.getElementById("atr-multiple-val").textContent = plan.atr_stop_multiple || "--";
+        if (atrMultipleEl) atrMultipleEl.textContent = plan.atr_stop_multiple || "--";
 
-        document.getElementById("long-trigger").textContent = plan.corridor_floor ? `$${Number(plan.corridor_floor).toLocaleString()}` : "$--";
-        document.getElementById("short-trigger").textContent = plan.corridor_roof ? `$${Number(plan.corridor_roof).toLocaleString()}` : "$--";
+        if (longTrigger) longTrigger.textContent = plan.corridor_floor ? `$${Number(plan.corridor_floor).toLocaleString()}` : "$--";
+        if (shortTrigger) shortTrigger.textContent = plan.corridor_roof ? `$${Number(plan.corridor_roof).toLocaleString()}` : "$--";
 
     } else {
-        // Tactical Sniper Execution Mode (1M, 5M, 15M, 30M, 1H)
+        // Tactical Sniper Execution Mode (1M, 3M, 5M, 15M, 30M, 1H, 2H)
         if (card1Title) card1Title.textContent = "TRADING DIRECTIVE & EXECUTION PLAN";
         if (longBoxLabel) longBoxLabel.textContent = "LONG ENTRY TRIGGER";
         if (shortBoxLabel) shortBoxLabel.textContent = "SHORT ENTRY TRIGGER";
@@ -170,24 +248,24 @@ function renderSummary(data) {
 
         if (pName1) pName1.textContent = "Invalidation (Stop Loss):";
         if (stopLossEl) {
-            stopLossEl.textContent = plan.stop_loss ? `$${plan.stop_loss.toLocaleString()}` : "$--";
+            stopLossEl.textContent = plan.stop_loss ? `$${Number(plan.stop_loss).toLocaleString()}` : "$--";
             stopLossEl.className = "param-val text-red font-bold";
         }
 
         if (pName2) pName2.textContent = "Target 1 (Scalp / Base):";
-        document.getElementById("target1-val").textContent = plan.target_1 ? `$${plan.target_1.toLocaleString()} (+${plan.gain_pct}%)` : "$--";
+        if (target1El) target1El.textContent = plan.target_1 ? `$${Number(plan.target_1).toLocaleString()} (+${plan.gain_pct}%)` : "$--";
 
         if (pName3) pName3.textContent = "Target 2 (Max Runner):";
-        document.getElementById("target2-val").textContent = plan.target_2 ? `$${plan.target_2.toLocaleString()} (+${plan.max_runner_pct}%)` : "$--";
+        if (target2El) target2El.textContent = plan.target_2 ? `$${Number(plan.target_2).toLocaleString()} (+${plan.max_runner_pct}%)` : "$--";
 
         if (pName4) pName4.textContent = "Risk : Reward Ratio:";
-        document.getElementById("rr-ratio-val").textContent = plan.risk_reward_ratio || "--";
+        if (rrRatioEl) rrRatioEl.textContent = plan.risk_reward_ratio || "--";
 
         if (pName5) pName5.textContent = "ATR Multiple Standard:";
-        document.getElementById("atr-multiple-val").textContent = plan.atr_stop_multiple || "--";
+        if (atrMultipleEl) atrMultipleEl.textContent = plan.atr_stop_multiple || "--";
 
-        document.getElementById("long-trigger").textContent = plan.long_entry_trigger ? `$${plan.long_entry_trigger.toLocaleString()}` : "$--";
-        document.getElementById("short-trigger").textContent = plan.short_entry_trigger ? `$${plan.short_entry_trigger.toLocaleString()}` : "$--";
+        if (longTrigger) longTrigger.textContent = plan.long_entry_trigger ? `$${Number(plan.long_entry_trigger).toLocaleString()}` : "$--";
+        if (shortTrigger) shortTrigger.textContent = plan.short_entry_trigger ? `$${Number(plan.short_entry_trigger).toLocaleString()}` : "$--";
     }
 
     // 3. ML Probabilities & Order Book
