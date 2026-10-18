@@ -95,10 +95,14 @@ function renderSummary(data) {
             actionEl.style.color = "var(--accent-green)";
             actionEl.style.borderColor = "rgba(0, 255, 163, 0.4)";
             actionEl.style.background = "rgba(0, 255, 163, 0.08)";
-        } else {
+        } else if (plan.action_type === "SHORT" || plan.action_type === "SELL_LIMIT") {
             actionEl.style.color = "var(--accent-red)";
             actionEl.style.borderColor = "rgba(255, 59, 105, 0.4)";
             actionEl.style.background = "rgba(255, 59, 105, 0.08)";
+        } else {
+            actionEl.style.color = "var(--accent-cyan)";
+            actionEl.style.borderColor = "rgba(0, 229, 255, 0.4)";
+            actionEl.style.background = "rgba(0, 229, 255, 0.08)";
         }
     }
 
@@ -106,16 +110,81 @@ function renderSummary(data) {
     if (scenarioTag) scenarioTag.textContent = plan.scenario || "Scenario Active";
 
     const roleEl = document.getElementById("directive-role");
-    const tfParam = data.indicators || {};
-    if (roleEl) roleEl.textContent = `Timeframe: ${data.timeframe.toUpperCase()} · ATR Standard: ${plan.atr_stop_multiple || "--"}`;
+    if (roleEl) {
+        const confluenceInfo = plan.four_pillars ? ` · Pillars: ${plan.four_pillars.confluence_summary}` : "";
+        roleEl.textContent = `Timeframe: ${data.timeframe.toUpperCase()}${confluenceInfo}`;
+    }
 
-    document.getElementById("long-trigger").textContent = plan.long_entry_trigger ? `$${plan.long_entry_trigger.toLocaleString()}` : "$--";
-    document.getElementById("short-trigger").textContent = plan.short_entry_trigger ? `$${plan.short_entry_trigger.toLocaleString()}` : "$--";
-    document.getElementById("stop-loss-val").textContent = plan.stop_loss ? `$${plan.stop_loss.toLocaleString()}` : "$--";
-    document.getElementById("target1-val").textContent = plan.target_1 ? `$${plan.target_1.toLocaleString()} (+${plan.gain_pct}%)` : "$--";
-    document.getElementById("target2-val").textContent = plan.target_2 ? `$${plan.target_2.toLocaleString()} (+${plan.max_runner_pct}%)` : "$--";
-    document.getElementById("rr-ratio-val").textContent = plan.risk_reward_ratio || "--";
-    document.getElementById("atr-multiple-val").textContent = plan.atr_stop_multiple || "--";
+    const card1Title = document.getElementById("card1-title");
+    const longBoxLabel = document.getElementById("long-box-label");
+    const shortBoxLabel = document.getElementById("short-box-label");
+    const longBoxSub = document.getElementById("long-box-sub");
+    const shortBoxSub = document.getElementById("short-box-sub");
+    const pName1 = document.getElementById("param-name-1");
+    const pName2 = document.getElementById("param-name-2");
+    const pName3 = document.getElementById("param-name-3");
+    const pName4 = document.getElementById("param-name-4");
+    const pName5 = document.getElementById("param-name-5");
+    const stopLossEl = document.getElementById("stop-loss-val");
+
+    if (plan.is_roadmap) {
+        // Strategic Roadmap Mode (1W, 1D, 4H)
+        if (card1Title) card1Title.textContent = "STRATEGIC ROADMAP & VOLATILITY RADAR";
+        if (longBoxLabel) longBoxLabel.textContent = "CORRIDOR FLOOR (SUPPORT)";
+        if (shortBoxLabel) shortBoxLabel.textContent = "CORRIDOR ROOF (RESISTANCE)";
+        if (longBoxSub) longBoxSub.textContent = "Macro Lower Boundary";
+        if (shortBoxSub) shortBoxSub.textContent = "Macro Upper Boundary";
+
+        if (pName1) pName1.textContent = "Forecast Horizon:";
+        if (stopLossEl) {
+            stopLossEl.textContent = plan.forecast_period || "Next Session";
+            stopLossEl.className = "param-val text-cyan font-bold";
+        }
+
+        if (pName2) pName2.textContent = "Expected Volatility (%):";
+        document.getElementById("target1-val").textContent = `±${plan.expected_vol_pct}%`;
+
+        if (pName3) pName3.textContent = "Expected Volatility ($):";
+        document.getElementById("target2-val").textContent = `±$${Number(plan.expected_vol_dollars).toLocaleString()}`;
+
+        if (pName4) pName4.textContent = "4-Pillar Confluence:";
+        document.getElementById("rr-ratio-val").textContent = plan.four_pillars ? plan.four_pillars.confluence_summary : "Verified";
+
+        if (pName5) pName5.textContent = "Trading Corridor:";
+        document.getElementById("atr-multiple-val").textContent = plan.atr_stop_multiple || "--";
+
+        document.getElementById("long-trigger").textContent = plan.corridor_floor ? `$${Number(plan.corridor_floor).toLocaleString()}` : "$--";
+        document.getElementById("short-trigger").textContent = plan.corridor_roof ? `$${Number(plan.corridor_roof).toLocaleString()}` : "$--";
+
+    } else {
+        // Tactical Sniper Execution Mode (1M, 5M, 15M, 30M, 1H)
+        if (card1Title) card1Title.textContent = "TRADING DIRECTIVE & EXECUTION PLAN";
+        if (longBoxLabel) longBoxLabel.textContent = "LONG ENTRY TRIGGER";
+        if (shortBoxLabel) shortBoxLabel.textContent = "SHORT ENTRY TRIGGER";
+        if (longBoxSub) longBoxSub.textContent = "Distinct Structural Level";
+        if (shortBoxSub) shortBoxSub.textContent = "Distinct Breakdown Level";
+
+        if (pName1) pName1.textContent = "Invalidation (Stop Loss):";
+        if (stopLossEl) {
+            stopLossEl.textContent = plan.stop_loss ? `$${plan.stop_loss.toLocaleString()}` : "$--";
+            stopLossEl.className = "param-val text-red font-bold";
+        }
+
+        if (pName2) pName2.textContent = "Target 1 (Scalp / Base):";
+        document.getElementById("target1-val").textContent = plan.target_1 ? `$${plan.target_1.toLocaleString()} (+${plan.gain_pct}%)` : "$--";
+
+        if (pName3) pName3.textContent = "Target 2 (Max Runner):";
+        document.getElementById("target2-val").textContent = plan.target_2 ? `$${plan.target_2.toLocaleString()} (+${plan.max_runner_pct}%)` : "$--";
+
+        if (pName4) pName4.textContent = "Risk : Reward Ratio:";
+        document.getElementById("rr-ratio-val").textContent = plan.risk_reward_ratio || "--";
+
+        if (pName5) pName5.textContent = "ATR Multiple Standard:";
+        document.getElementById("atr-multiple-val").textContent = plan.atr_stop_multiple || "--";
+
+        document.getElementById("long-trigger").textContent = plan.long_entry_trigger ? `$${plan.long_entry_trigger.toLocaleString()}` : "$--";
+        document.getElementById("short-trigger").textContent = plan.short_entry_trigger ? `$${plan.short_entry_trigger.toLocaleString()}` : "$--";
+    }
 
     // 3. ML Probabilities & Order Book
     const probUpPct = data.prob_up_pct || 50;

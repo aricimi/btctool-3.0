@@ -79,7 +79,9 @@ async def generate_timeframe_summary(timeframe: str, macro_4h_regime: str = "Ran
         pct_b=pct_b,
         ob_data=ob_data,
         pre_filter=pre_filter,
-        is_accelerating=is_accel
+        is_accelerating=is_accel,
+        mom_data=brain_out["momentum"],
+        deriv_data=deriv_data
     )
     
     # 7. Sentiment

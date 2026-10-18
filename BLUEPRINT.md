@@ -185,3 +185,5 @@ c:\gemini proyect\btctool 3.0\
 - **2026-10-18:** Live system verified on `https://btctool-3-0.onrender.com`.
 - **2026-10-18:** Upgraded engine with **Timeframe Sovereignty & Zero Macro Vetoes**: Lower timeframes (1M-30M) have full local autonomy to trade counter-trend momentum and dip bounces.
 - **2026-10-18:** Implemented **Volatility-Adaptive Target Scaler with Institutional Profit Floors** (min +0.25% on 1M/5M, min +0.40% on 15M/30M, min +0.60% on 1H+) eliminating un-tradable micro-gains.
+- **2026-10-18:** Implemented **4-Pillars Multi-Evidence Confluence Engine** (Tape, Structure, Momentum, Derivatives): Prevents 10-second orderbook blips from flipping macro directives without multi-pillar confirmation ($\ge 3$ pillars required for 15M+).
+- **2026-10-18:** Built **Hierarchical Volatility Roadmap & Forecasts**: 1W forecasts 24h expected daily volatility (e.g. ±3.0%) and weekly corridor; 1D forecasts next 4h–8h session range; 4H forecasts next 1h–2h wave; 1M/5M/15M/30M/1H deliver direct tactical sniper orders. Card 1 dynamically transitions between Roadmap and Tactical modes.
