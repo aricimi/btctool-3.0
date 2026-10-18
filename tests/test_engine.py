@@ -10,6 +10,7 @@ from backend.services.brains import (
     calc_atr,
     calc_adx,
     calc_squeeze_fsm,
+    calc_bollinger_metrics,
     StatisticalBrain,
     MomentumBrain,
     VolatilityBrain,
@@ -67,6 +68,101 @@ class TestBtcToolEngine(unittest.TestCase):
         self.assertIn(state, ["IDLE", "BUILDING", "LOADED", "FIRING", "TRENDING"])
         self.assertIsInstance(badge, str)
         self.assertGreater(upper.iloc[-1], lower.iloc[-1])
+
+    def test_bollinger_metrics(self):
+        metrics = calc_bollinger_metrics(self.df, 20, 2.0)
+        self.assertIn("bb_mb_slope", metrics)
+        self.assertIn("bb_bandwidth_pct", metrics)
+        self.assertIn("bb_direction", metrics)
+        self.assertIn("bb_state", metrics)
+        self.assertIn(metrics["bb_direction"], ["UPWARD", "DOWNWARD", "HORIZONTAL"])
+        self.assertIn(metrics["bb_state"], ["EXPANDING_UP", "EXPANDING_DOWN", "WIDE_RANGE", "PINCHED_COMPRESSION", "NORMAL_RANGE"])
+        self.assertGreater(metrics["bb_upper"], metrics["bb_lower"])
+
+    def test_1m_pinched_compression_waits(self):
+        # When 5M has <0.25% bandwidth and is not opening, 1M MUST WAIT
+        context_5m = {
+            "indicators": {
+                "bb_bandwidth_pct": 0.15,
+                "bb_state": "PINCHED_COMPRESSION",
+                "bb_direction": "HORIZONTAL",
+                "bb_is_opening": False,
+                "pct_b": 0.50
+            }
+        }
+        plan = compute_trade_plan(
+            current_price=81100.0,
+            atr=80.0,
+            timeframe="1m",
+            macro_regime="Range",
+            squeeze_state="IDLE",
+            prob_up=0.55,
+            prob_down=0.45,
+            pct_b=0.50,
+            ob_data={"imbalance_ratio": 0.10},
+            pre_filter={},
+            is_accelerating=False,
+            higher_tf_context={"5m": context_5m}
+        )
+        self.assertEqual(plan["action_type"], "WAIT")
+        self.assertIn("WAIT", plan["action"])
+        self.assertIn("PINCHED", plan["action"])
+
+    def test_1m_wide_range_scalps_lower_band(self):
+        # When 5M has >=0.50% bandwidth and price is near lower band (%B <= 0.35), 1M buys without waiting
+        context_5m = {
+            "indicators": {
+                "bb_bandwidth_pct": 0.85,
+                "bb_state": "WIDE_RANGE",
+                "bb_direction": "HORIZONTAL",
+                "bb_is_opening": False,
+                "pct_b": 0.20
+            }
+        }
+        plan = compute_trade_plan(
+            current_price=81000.0,
+            atr=80.0,
+            timeframe="1m",
+            macro_regime="Range",
+            squeeze_state="IDLE",
+            prob_up=0.55,
+            prob_down=0.45,
+            pct_b=0.20,
+            ob_data={"imbalance_ratio": 0.05},
+            pre_filter={},
+            is_accelerating=False,
+            higher_tf_context={"5m": context_5m}
+        )
+        self.assertEqual(plan["action_type"], "BUY")
+        self.assertIn("WIDE RANGE SCALP", plan["action"])
+
+    def test_1m_htf_expansion_rides_trend(self):
+        # When 5M is expanding upwards, 1M rides the trend expansion
+        context_5m = {
+            "indicators": {
+                "bb_bandwidth_pct": 0.40,
+                "bb_state": "EXPANDING_UP",
+                "bb_direction": "UPWARD",
+                "bb_is_opening": True,
+                "pct_b": 0.70
+            }
+        }
+        plan = compute_trade_plan(
+            current_price=81200.0,
+            atr=80.0,
+            timeframe="1m",
+            macro_regime="Trend Up",
+            squeeze_state="FIRING",
+            prob_up=0.65,
+            prob_down=0.35,
+            pct_b=0.70,
+            ob_data={"imbalance_ratio": 0.20},
+            pre_filter={},
+            is_accelerating=True,
+            higher_tf_context={"5m": context_5m}
+        )
+        self.assertEqual(plan["action_type"], "BUY")
+        self.assertIn("TREND EXPANSION", plan["action"])
 
     def test_statistical_brain(self):
         # Close at 81500 with bounds [80000, 82000] gives %B = 0.75 (resistance zone)

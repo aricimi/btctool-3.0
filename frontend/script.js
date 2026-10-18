@@ -99,6 +99,10 @@ function renderSummary(data) {
             actionEl.style.color = "var(--accent-red)";
             actionEl.style.borderColor = "rgba(255, 59, 105, 0.4)";
             actionEl.style.background = "rgba(255, 59, 105, 0.08)";
+        } else if (plan.action_type === "WAIT") {
+            actionEl.style.color = "#ffb020";
+            actionEl.style.borderColor = "rgba(255, 176, 32, 0.4)";
+            actionEl.style.background = "rgba(255, 176, 32, 0.12)";
         } else {
             actionEl.style.color = "var(--accent-cyan)";
             actionEl.style.borderColor = "rgba(0, 229, 255, 0.4)";
@@ -219,8 +223,8 @@ function renderSummary(data) {
     document.getElementById("macd-slope-val").textContent = `${mom.is_accelerating ? "▲ Accelerating" : "▼ Decelerating"} (${mom.smooth_slope > 0 ? "+" : ""}${mom.smooth_slope})`;
 
     document.getElementById("vol-score").textContent = `State: ${vol.squeeze_state || "--"}`;
-    document.getElementById("atr-val").textContent = `$${vol.atr || "--"} (${vol.atr_pct || "--"}%)`;
-    document.getElementById("vol-regime-val").textContent = `Vol Rank: ${Math.round((vol.volatility_regime_rank || 0.5) * 100)}th percentile`;
+    const bollInfo = vol.bb_bandwidth_pct !== undefined ? ` · BB Width: ${vol.bb_bandwidth_pct}% (${vol.bb_direction})` : "";
+    document.getElementById("vol-regime-val").textContent = `Vol Rank: ${Math.round((vol.volatility_regime_rank || 0.5) * 100)}th%${bollInfo}`;
 
     // 5. Pre-Filter & Sentiment
     const preFilter = data.pre_filter || {};

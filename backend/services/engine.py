@@ -81,7 +81,13 @@ async def generate_timeframe_summary(timeframe: str, macro_4h_regime: str = "Ran
         pre_filter=pre_filter,
         is_accelerating=is_accel,
         mom_data=brain_out["momentum"],
-        deriv_data=deriv_data
+        deriv_data=deriv_data,
+        vol_data=brain_out["volatility"],
+        higher_tf_context={
+            "5m": _timeframe_cache.get("5m"),
+            "15m": _timeframe_cache.get("15m"),
+            "30m": _timeframe_cache.get("30m"),
+        }
     )
     
     # 7. Sentiment
@@ -116,6 +122,14 @@ async def generate_timeframe_summary(timeframe: str, macro_4h_regime: str = "Ran
             "adx": round(curr_adx, 2),
             "squeeze_state": squeeze_state,
             "squeeze_badge": brain_out["volatility"]["squeeze_badge"],
+            "bb_middle": brain_out["volatility"].get("bb_middle", 0.0),
+            "bb_upper": brain_out["volatility"].get("bb_upper", 0.0),
+            "bb_lower": brain_out["volatility"].get("bb_lower", 0.0),
+            "bb_bandwidth_pct": brain_out["volatility"].get("bb_bandwidth_pct", 0.0),
+            "bb_mb_slope": brain_out["volatility"].get("bb_mb_slope", 0.0),
+            "bb_direction": brain_out["volatility"].get("bb_direction", "HORIZONTAL"),
+            "bb_is_opening": brain_out["volatility"].get("bb_is_opening", False),
+            "bb_state": brain_out["volatility"].get("bb_state", "NORMAL_RANGE"),
         }
     }
     

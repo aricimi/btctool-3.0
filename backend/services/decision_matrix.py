@@ -124,7 +124,9 @@ def compute_trade_plan(
     pre_filter: Dict[str, Any],
     is_accelerating: bool,
     mom_data: Dict[str, Any] = None,
-    deriv_data: Dict[str, Any] = None
+    deriv_data: Dict[str, Any] = None,
+    vol_data: Dict[str, Any] = None,
+    higher_tf_context: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
     Computes trade directives using:
@@ -248,9 +250,123 @@ def compute_trade_plan(
     suppress_long = pre_filter.get("suppress_market_long", False)
     suppress_short = pre_filter.get("suppress_market_short", False)
 
-    # 4-Pillar Confluence Rule:
-    # Requires >= 2 (for 1m/5m) or >= 3 (for 15m/1h) confirming pillars
-    if pillars["has_bull_confluence"] and not suppress_long:
+    vol_data = vol_data or {}
+    higher_tf_context = higher_tf_context or {}
+
+    # Extract higher timeframe (5M, 15M, 30M) Bollinger & momentum context
+    context_5m = higher_tf_context.get("5m") or {}
+    context_15m = higher_tf_context.get("15m") or {}
+    context_30m = higher_tf_context.get("30m") or {}
+
+    ind_5m = context_5m.get("indicators", {})
+    vol_5m = context_5m.get("brain_ensemble", {}).get("volatility", {})
+    bb_width_5m = ind_5m.get("bb_bandwidth_pct", vol_5m.get("bb_bandwidth_pct", vol_data.get("bb_bandwidth_pct", 0.35)))
+    bb_state_5m = ind_5m.get("bb_state", vol_5m.get("bb_state", vol_data.get("bb_state", "NORMAL_RANGE")))
+    bb_dir_5m = ind_5m.get("bb_direction", vol_5m.get("bb_direction", vol_data.get("bb_direction", "HORIZONTAL")))
+    is_opening_5m = ind_5m.get("bb_is_opening", vol_5m.get("bb_is_opening", False))
+    pct_b_5m = ind_5m.get("pct_b", pct_b)
+
+    ind_15m = context_15m.get("indicators", {})
+    vol_15m = context_15m.get("brain_ensemble", {}).get("volatility", {})
+    bb_state_15m = ind_15m.get("bb_state", vol_15m.get("bb_state", "NORMAL_RANGE"))
+    bb_dir_15m = ind_15m.get("bb_direction", vol_15m.get("bb_direction", "HORIZONTAL"))
+    is_opening_15m = ind_15m.get("bb_is_opening", vol_15m.get("bb_is_opening", False))
+
+    is_htf_expanding_up = (bb_state_5m == "EXPANDING_UP" or (bb_dir_5m == "UPWARD" and is_opening_5m) or
+                           bb_state_15m == "EXPANDING_UP" or (bb_dir_15m == "UPWARD" and is_opening_15m))
+    is_htf_expanding_down = (bb_state_5m == "EXPANDING_DOWN" or (bb_dir_5m == "DOWNWARD" and is_opening_5m) or
+                             bb_state_15m == "EXPANDING_DOWN" or (bb_dir_15m == "DOWNWARD" and is_opening_15m))
+
+    # Check for Pinched Compression (<0.25% bandwidth without opening)
+    is_pinched_chop = False
+    if timeframe == "1m":
+        is_pinched_chop = bool((bb_state_5m == "PINCHED_COMPRESSION" or bb_width_5m < 0.25) and not is_opening_5m)
+    elif timeframe == "5m":
+        cur_bb_w = vol_data.get("bb_bandwidth_pct", 1.0)
+        is_pinched_chop = bool((vol_data.get("bb_state") == "PINCHED_COMPRESSION" or cur_bb_w < 0.25) and not vol_data.get("bb_is_opening", False))
+
+    # Check for Wide Range (>= 0.50% bandwidth, horizontal, not opening)
+    is_wide_range = False
+    if timeframe in ["1m", "5m"] and bb_width_5m >= 0.50 and bb_dir_5m == "HORIZONTAL" and not is_opening_5m:
+        is_wide_range = True
+
+    # -------------------------------------------------------------
+    # FLUID TACTICAL STATE MACHINE (1M / 5M / 15M)
+    # -------------------------------------------------------------
+    # Branch 1: Pinched Squeeze with No Room (Wait for band expansion)
+    if is_pinched_chop:
+        w_val = bb_width_5m if timeframe == "1m" else vol_data.get("bb_bandwidth_pct", 0.20)
+        scenario_name = f"Choked Bollinger Compression ({w_val}% width): Awaiting Band Opening"
+        action = "⏸️ WAIT: 5M BOLLINGER PINCHED (<0.25% SPREAD) — AWAITING BAND EXPANSION" if timeframe == "1m" else "⏸️ WAIT: BOLLINGER PINCHED (<0.25% SPREAD) — AWAITING BAND EXPANSION"
+        action_type = "WAIT"
+        long_entry = current_price
+        short_entry = current_price
+        stop_loss = round(current_price - stop_dist, 2)
+        target_1 = round(current_price + tp1_dist, 2)
+        target_2 = round(current_price + tp2_dist, 2)
+
+    # Branch 2: Higher-Timeframe Directional Breakout/Expansion (Ride the strong momentum)
+    elif timeframe == "1m" and is_htf_expanding_up and not suppress_long:
+        scenario_name = f"Higher TF Surge: 5M/15M Bollinger Expanding Upward ({pillars['confluence_summary']})"
+        action = "TREND EXPANSION: ENTER LONG NOW (5M/15M OPENING NORTH)"
+        action_type = "BUY"
+        long_entry = current_price
+        short_entry = round(current_price - 1.5 * stop_dist, 2)
+        stop_loss = round(long_entry - stop_dist, 2)
+        target_1 = round(long_entry + tp1_dist, 2)
+        target_2 = round(long_entry + tp2_dist, 2)
+
+    elif timeframe == "1m" and is_htf_expanding_down and not suppress_short:
+        scenario_name = f"Higher TF Breakdown: 5M/15M Bollinger Expanding Downward ({pillars['confluence_summary']})"
+        action = "TREND EXPANSION: ENTER SHORT NOW (5M/15M OPENING SOUTH)"
+        action_type = "SHORT"
+        short_entry = current_price
+        long_entry = round(current_price + 1.5 * stop_dist, 2)
+        stop_loss = round(short_entry + stop_dist, 2)
+        target_1 = round(short_entry - tp1_dist, 2)
+        target_2 = round(short_entry - tp2_dist, 2)
+
+    # Branch 3: Wide Horizontal Range Scalp (>= 0.50% range - don't wait, scalp the extremes)
+    elif is_wide_range:
+        if pct_b_5m <= 0.35 and not suppress_long:
+            scenario_name = f"Wide 5M Channel ({bb_width_5m}% range): Floor Bounce Mean-Reversion"
+            action = "WIDE RANGE SCALP: ENTER LONG OFF 5M LOWER SUPPORT"
+            action_type = "BUY"
+            long_entry = current_price
+            short_entry = round(current_price - 1.5 * stop_dist, 2)
+            stop_loss = round(current_price - stop_dist, 2)
+            target_1 = round(current_price + (tp1_dist * 1.2), 2)
+            target_2 = round(current_price + (tp2_dist * 1.5), 2)
+        elif pct_b_5m >= 0.65 and not suppress_short:
+            scenario_name = f"Wide 5M Channel ({bb_width_5m}% range): Ceiling Fade Mean-Reversion"
+            action = "WIDE RANGE SCALP: ENTER SHORT OFF 5M UPPER CEILING"
+            action_type = "SHORT"
+            short_entry = current_price
+            long_entry = round(current_price + 1.5 * stop_dist, 2)
+            stop_loss = round(current_price + stop_dist, 2)
+            target_1 = round(current_price - (tp1_dist * 1.2), 2)
+            target_2 = round(current_price - (tp2_dist * 1.5), 2)
+        else:
+            scenario_name = f"Wide 5M Channel ({bb_width_5m}% range): Mid-Channel Range Setup"
+            if prob_up >= prob_down and not suppress_long:
+                action = "WIDE RANGE: SET BUY LIMIT AT 5M SUPPORT FLOOR"
+                action_type = "BUY_LIMIT"
+                long_entry = round(current_price - 0.5 * stop_dist, 2)
+                short_entry = round(current_price + 1.0 * stop_dist, 2)
+                stop_loss = round(long_entry - stop_dist, 2)
+                target_1 = round(long_entry + tp1_dist, 2)
+                target_2 = round(long_entry + tp2_dist, 2)
+            else:
+                action = "WIDE RANGE: SET SELL LIMIT AT 5M CEILING ROOF"
+                action_type = "SELL_LIMIT"
+                long_entry = round(current_price - 1.0 * stop_dist, 2)
+                short_entry = round(current_price + 0.5 * stop_dist, 2)
+                stop_loss = round(short_entry + stop_dist, 2)
+                target_1 = round(short_entry - tp1_dist, 2)
+                target_2 = round(short_entry - tp2_dist, 2)
+
+    # Branch 4: Standard 4-Pillar Confluence Rule
+    elif pillars["has_bull_confluence"] and not suppress_long:
         scenario_name = f"Confluence Confirmed: {pillars['confluence_summary']} Bullish"
         if macro_regime == "Trend Down":
             action = "COUNTER-TREND SCALP: ENTER LONG NOW" if is_accelerating else "COUNTER-TREND SCALP: SET BUY LIMIT"
@@ -281,7 +397,7 @@ def compute_trade_plan(
         target_1 = round(short_entry - tp1_dist, 2)
         target_2 = round(short_entry - tp2_dist, 2)
 
-    # If only 1 pillar blipped without confluence: Hold range boundaries
+    # Branch 5: Neutral Consolidation (hold boundaries)
     else:
         scenario_name = f"Neutral Consolidation (Pillars: {pillars['confluence_summary']})"
         if prob_up >= prob_down and not suppress_long:

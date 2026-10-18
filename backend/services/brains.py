@@ -61,6 +61,77 @@ def calc_adx(df: pd.DataFrame, period: int = 14) -> Tuple[pd.Series, pd.Series, 
     
     return adx, plus_di, minus_di
 
+def calc_bollinger_metrics(df: pd.DataFrame, bb_period: int = 20, bb_std: float = 2.0) -> Dict[str, Any]:
+    """
+    Calculates detailed Bollinger Band dynamics:
+    - Middle Band (SMA 20) slope and directional tilt (UPWARD, DOWNWARD, HORIZONTAL).
+    - Envelope bandwidth percentage = (Upper - Lower) / Middle * 100.
+    - Band expansion derivative (true opening vs pinching parallel).
+    - Fluid Regime Classification:
+        * EXPANDING_UP: Bands opening outwards + upward MB slope
+        * EXPANDING_DOWN: Bands opening outwards + downward MB slope
+        * WIDE_RANGE: Bandwidth >= 0.50% (ample room for boundary scalps)
+        * PINCHED_COMPRESSION: Bandwidth < 0.25% (dead chop, high risk)
+        * NORMAL_RANGE: 0.25% <= Bandwidth < 0.50%
+    """
+    close = df["close"]
+    sma_bb = close.rolling(window=bb_period).mean()
+    std_bb = close.rolling(window=bb_period).std()
+    bb_upper = sma_bb + (bb_std * std_bb)
+    bb_lower = sma_bb - (bb_std * std_bb)
+    bb_width = (bb_upper - bb_lower) / sma_bb.replace(0, np.nan)
+
+    curr_close = float(close.iloc[-1])
+    curr_mb = float(sma_bb.iloc[-1]) if not pd.isna(sma_bb.iloc[-1]) else curr_close
+    prev_mb = float(sma_bb.iloc[-3]) if len(sma_bb) >= 3 and not pd.isna(sma_bb.iloc[-3]) else (float(sma_bb.iloc[-2]) if len(sma_bb) >= 2 and not pd.isna(sma_bb.iloc[-2]) else curr_mb)
+    
+    mb_slope_pct = ((curr_mb - prev_mb) / (2.0 * curr_close) * 100.0) if curr_close > 0 else 0.0
+
+    curr_upper = float(bb_upper.iloc[-1]) if not pd.isna(bb_upper.iloc[-1]) else curr_close
+    curr_lower = float(bb_lower.iloc[-1]) if not pd.isna(bb_lower.iloc[-1]) else curr_close
+    prev_upper = float(bb_upper.iloc[-2]) if len(bb_upper) > 1 and not pd.isna(bb_upper.iloc[-2]) else curr_upper
+    prev_lower = float(bb_lower.iloc[-2]) if len(bb_lower) > 1 and not pd.isna(bb_lower.iloc[-2]) else curr_lower
+    
+    bandwidth_pct = float(bb_width.iloc[-1] * 100.0) if not pd.isna(bb_width.iloc[-1]) else 0.0
+    prev_bandwidth = float(bb_width.iloc[-2] * 100.0) if len(bb_width) > 1 and not pd.isna(bb_width.iloc[-2]) else bandwidth_pct
+
+    # Direction: UPWARD, DOWNWARD, HORIZONTAL
+    if mb_slope_pct > 0.015:
+        bb_direction = "UPWARD"
+    elif mb_slope_pct < -0.015:
+        bb_direction = "DOWNWARD"
+    else:
+        bb_direction = "HORIZONTAL"
+
+    # Opening / Expansion check: bands widening outward
+    is_opening = bool(bandwidth_pct > prev_bandwidth and (curr_upper > prev_upper or curr_lower < prev_lower))
+
+    # Fluid Regime State
+    if is_opening and bb_direction == "UPWARD":
+        bb_state = "EXPANDING_UP"
+    elif is_opening and bb_direction == "DOWNWARD":
+        bb_state = "EXPANDING_DOWN"
+    elif bandwidth_pct >= 0.50:
+        bb_state = "WIDE_RANGE"
+    elif bandwidth_pct < 0.25:
+        bb_state = "PINCHED_COMPRESSION"
+    else:
+        bb_state = "NORMAL_RANGE"
+
+    return {
+        "bb_middle": round(curr_mb, 2),
+        "bb_upper": round(curr_upper, 2),
+        "bb_lower": round(curr_lower, 2),
+        "bb_mb_slope": round(mb_slope_pct, 4),
+        "bb_bandwidth_pct": round(bandwidth_pct, 3),
+        "bb_is_opening": is_opening,
+        "bb_direction": bb_direction,
+        "bb_state": bb_state,
+        "bb_upper_series": bb_upper,
+        "bb_lower_series": bb_lower,
+        "sma_bb_series": sma_bb,
+    }
+
 def calc_squeeze_fsm(df: pd.DataFrame, bb_period: int, bb_std: float, loaded_bars_threshold: int) -> Tuple[str, str, pd.Series, pd.Series]:
     """
     5-State Volatility Squeeze Finite State Machine:
@@ -255,6 +326,7 @@ class VolatilityBrain:
         curr_close = float(df["close"].iloc[-1])
         atr_pct = (curr_atr / curr_close * 100) if curr_close > 0 else 0.0
         
+        boll_metrics = calc_bollinger_metrics(df, bb_period, bb_std)
         state, badge, bb_upper, bb_lower = calc_squeeze_fsm(df, bb_period, bb_std, loaded_threshold)
         
         # 100-bar ATR percentile rank (volatility regime)
@@ -268,8 +340,14 @@ class VolatilityBrain:
             "squeeze_badge": str(badge),
             "volatility_regime_rank": round(rank, 4),
             "is_loaded_or_firing": bool(state in ["LOADED", "FIRING"]),
-            "bb_upper": round(float(bb_upper.iloc[-1]), 2),
-            "bb_lower": round(float(bb_lower.iloc[-1]), 2),
+            "bb_upper": boll_metrics["bb_upper"],
+            "bb_lower": boll_metrics["bb_lower"],
+            "bb_middle": boll_metrics["bb_middle"],
+            "bb_mb_slope": boll_metrics["bb_mb_slope"],
+            "bb_bandwidth_pct": boll_metrics["bb_bandwidth_pct"],
+            "bb_is_opening": boll_metrics["bb_is_opening"],
+            "bb_direction": boll_metrics["bb_direction"],
+            "bb_state": boll_metrics["bb_state"],
         }
 
 def evaluate_tri_brain_ensemble(df: pd.DataFrame, timeframe: str, macro_regime: str = "Range") -> Dict[str, Any]:
