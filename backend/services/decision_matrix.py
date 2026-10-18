@@ -92,9 +92,9 @@ def evaluate_4_pillars(
     neutral_count = pillars.count("NEUTRAL")
 
     # Timeframe-scaled confirmation threshold:
-    # 1M/5M: requires >= 2 confirming pillars
+    # 1M/3M/5M: requires >= 2 confirming pillars
     # 15M/1H+: requires >= 3 confirming pillars
-    required_confluence = 2 if timeframe in ["1m", "5m"] else 3
+    required_confluence = 2 if timeframe in ["1m", "3m", "5m"] else 3
     has_bull_confluence = (bull_count >= required_confluence)
     has_bear_confluence = (bear_count >= required_confluence)
 
@@ -131,8 +131,8 @@ def compute_trade_plan(
     """
     Computes trade directives using:
     1. 4-Pillar Confluence (prevents single-trade tape blips from flipping directives).
-    2. Hierarchical Volatility Roadmap for Macro/Swing TFs (1W, 1D, 4H).
-    3. Direct Sniper Action Directives for Tactical TFs (1M, 5M, 15M, 30M, 1H).
+    2. Hierarchical Volatility Roadmap for Macro/Swing TFs (1D, 4H, 8H).
+    3. Direct Sniper Action Directives for Tactical TFs (1M, 3M, 5M, 15M, 30M, 1H, 2H).
     """
     cfg = TIMEFRAME_PARAMETERS.get(timeframe, TIMEFRAME_PARAMETERS["1h"])
     atr_mult = cfg["atr_multiplier"]
@@ -143,30 +143,11 @@ def compute_trade_plan(
     pillars = evaluate_4_pillars(timeframe, ob_data, deriv_data, pct_b, mom_data, pre_filter)
     
     # ------------------------------------------------------------------
-    # BRANCH A: MACRO ROADMAP TIMEFRAMES (1W, 1D, 4H)
+    # BRANCH A: MACRO ROADMAP TIMEFRAMES (1D, 8H, 4H)
     # Expected Volatility Forecasts & Strategic Trading Corridors
     # ------------------------------------------------------------------
-    if timeframe in ["4h", "8h", "1d", "1w"]:
-        if timeframe == "1w":
-            forecast_period = "next 24h daily trading"
-            expected_vol_pct = round(max(2.2, min(4.5, (atr / current_price * 100) * 0.40)), 1)
-            vol_dollars = round(current_price * (expected_vol_pct / 100.0), 0)
-            corridor_floor = round(current_price - 1.2 * atr, 0)
-            corridor_roof = round(current_price + 1.2 * atr, 0)
-            
-            if pillars["has_bull_confluence"]:
-                action = "WEEKLY ROADMAP: MACRO ACCUMULATION ZONE (BULLISH OUTLOOK)"
-                action_type = "BUY"
-            elif pillars["has_bear_confluence"]:
-                action = "WEEKLY ROADMAP: DEFENSIVE REGIME / HEDGE EXPOSURE"
-                action_type = "SELL_LIMIT"
-            else:
-                action = "WEEKLY ROADMAP: RANGE BOUND EXPANSION COMPASS"
-                action_type = "NEUTRAL"
-                
-            scenario_name = f"Weekly Volatility Forecast: Expect ±{expected_vol_pct}% (±${int(vol_dollars)}) daily range"
-
-        elif timeframe == "1d":
+    if timeframe in ["4h", "8h", "1d"]:
+        if timeframe == "1d":
             forecast_period = "next 4h–8h session"
             expected_vol_pct = round(max(1.2, min(2.8, (atr / current_price * 100) * 0.50)), 1)
             vol_dollars = round(current_price * (expected_vol_pct / 100.0), 0)
@@ -230,7 +211,7 @@ def compute_trade_plan(
     # BRANCH B: TACTICAL SNIPER EXECUTION DIRECTIVES (1M, 5M, 15M, 30M, 1H)
     # Direct orders: ENTER NOW / SET LIMIT with fee-clearing profit floors
     # ------------------------------------------------------------------
-    min_gain_pct = 0.25 if timeframe in ["1m", "5m"] else (0.40 if timeframe in ["15m", "30m"] else 0.60)
+    min_gain_pct = 0.25 if timeframe in ["1m", "3m", "5m"] else (0.40 if timeframe in ["15m", "30m"] else 0.60)
     min_floor_dollars = (min_gain_pct / 100.0) * current_price
 
     # Stop distance with ATR and risk floor
@@ -279,7 +260,7 @@ def compute_trade_plan(
 
     # Check for Pinched Compression (<0.25% bandwidth without opening)
     is_pinched_chop = False
-    if timeframe == "1m":
+    if timeframe in ["1m", "3m"]:
         is_pinched_chop = bool((bb_state_5m == "PINCHED_COMPRESSION" or bb_width_5m < 0.25) and not is_opening_5m)
     elif timeframe == "5m":
         cur_bb_w = vol_data.get("bb_bandwidth_pct", 1.0)
@@ -287,17 +268,17 @@ def compute_trade_plan(
 
     # Check for Wide Range (>= 0.50% bandwidth, horizontal, not opening)
     is_wide_range = False
-    if timeframe in ["1m", "5m"] and bb_width_5m >= 0.50 and bb_dir_5m == "HORIZONTAL" and not is_opening_5m:
+    if timeframe in ["1m", "3m", "5m"] and bb_width_5m >= 0.50 and bb_dir_5m == "HORIZONTAL" and not is_opening_5m:
         is_wide_range = True
 
     # -------------------------------------------------------------
-    # FLUID TACTICAL STATE MACHINE (1M / 5M / 15M)
+    # FLUID TACTICAL STATE MACHINE (1M / 3M / 5M / 15M / 30M / 1H / 2H)
     # -------------------------------------------------------------
     # Branch 1: Pinched Squeeze with No Room (Wait for band expansion)
     if is_pinched_chop:
-        w_val = bb_width_5m if timeframe == "1m" else vol_data.get("bb_bandwidth_pct", 0.20)
+        w_val = bb_width_5m if timeframe in ["1m", "3m"] else vol_data.get("bb_bandwidth_pct", 0.20)
         scenario_name = f"Choked Bollinger Compression ({w_val}% width): Awaiting Band Opening"
-        action = "⏸️ WAIT: 5M BOLLINGER PINCHED (<0.25% SPREAD) — AWAITING BAND EXPANSION" if timeframe == "1m" else "⏸️ WAIT: BOLLINGER PINCHED (<0.25% SPREAD) — AWAITING BAND EXPANSION"
+        action = "⏸️ WAIT: 5M BOLLINGER PINCHED (<0.25% SPREAD) — AWAITING BAND EXPANSION" if timeframe in ["1m", "3m"] else "⏸️ WAIT: BOLLINGER PINCHED (<0.25% SPREAD) — AWAITING BAND EXPANSION"
         action_type = "WAIT"
         long_entry = current_price
         short_entry = current_price
@@ -306,7 +287,7 @@ def compute_trade_plan(
         target_2 = round(current_price + tp2_dist, 2)
 
     # Branch 2: Higher-Timeframe Directional Breakout/Expansion (Ride the strong momentum)
-    elif timeframe == "1m" and is_htf_expanding_up and not suppress_long:
+    elif timeframe in ["1m", "3m"] and is_htf_expanding_up and not suppress_long:
         scenario_name = f"Higher TF Surge: 5M/15M Bollinger Expanding Upward ({pillars['confluence_summary']})"
         action = "TREND EXPANSION: ENTER LONG NOW (5M/15M OPENING NORTH)"
         action_type = "BUY"
@@ -316,7 +297,7 @@ def compute_trade_plan(
         target_1 = round(long_entry + tp1_dist, 2)
         target_2 = round(long_entry + tp2_dist, 2)
 
-    elif timeframe == "1m" and is_htf_expanding_down and not suppress_short:
+    elif timeframe in ["1m", "3m"] and is_htf_expanding_down and not suppress_short:
         scenario_name = f"Higher TF Breakdown: 5M/15M Bollinger Expanding Downward ({pillars['confluence_summary']})"
         action = "TREND EXPANSION: ENTER SHORT NOW (5M/15M OPENING SOUTH)"
         action_type = "SHORT"

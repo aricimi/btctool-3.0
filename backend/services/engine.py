@@ -84,9 +84,12 @@ async def generate_timeframe_summary(timeframe: str, macro_4h_regime: str = "Ran
         deriv_data=deriv_data,
         vol_data=brain_out["volatility"],
         higher_tf_context={
+            "3m": _timeframe_cache.get("3m"),
             "5m": _timeframe_cache.get("5m"),
             "15m": _timeframe_cache.get("15m"),
             "30m": _timeframe_cache.get("30m"),
+            "1h": _timeframe_cache.get("1h"),
+            "2h": _timeframe_cache.get("2h"),
         }
     )
     

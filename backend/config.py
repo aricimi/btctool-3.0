@@ -16,33 +16,35 @@ BINANCE_BASE_URL = "https://api.binance.com"
 OKX_BASE_URL = "https://www.okx.com"
 FEAR_GREED_URL = "https://api.alternative.me/fng/?limit=1"
 
-# 9 Supported Timeframes in Hierarchical Order
-TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "8h", "1d", "1w"]
+# 10 Supported Timeframes in Hierarchical Order (Optimized for Intraday Trading)
+TIMEFRAMES = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "1d"]
 
 # Bybit Kline Interval Mapping
 BYBIT_INTERVAL_MAP = {
     "1m": "1",
+    "3m": "3",
     "5m": "5",
     "15m": "15",
     "30m": "30",
     "1h": "60",
+    "2h": "120",
     "4h": "240",
     "8h": "480",
     "1d": "D",
-    "1w": "W",
 }
 
 # Binance Kline Interval Mapping (Fallback)
 BINANCE_INTERVAL_MAP = {
     "1m": "1m",
+    "3m": "3m",
     "5m": "5m",
     "15m": "15m",
     "30m": "30m",
     "1h": "1h",
+    "2h": "2h",
     "4h": "4h",
     "8h": "8h",
     "1d": "1d",
-    "1w": "1w",
 }
 
 # Timeframe-Adaptive Indicator Parameters Matrix (v1 Institutional Upgrade)
@@ -61,6 +63,21 @@ TIMEFRAME_PARAMETERS = {
         "ml_horizon_bars": 5,
         "squeeze_loaded_bars": 5,
         "role": "Ultra Scalp ($120–$300 micro-bounces, 0.2%–0.5% scalps)",
+    },
+    "3m": {
+        "horizon_desc": "9 min (3 bars)",
+        "rsi_periods": (4, 8, 14),
+        "fast_ema": 6,
+        "slow_ema": 18,
+        "bb_period": 20,
+        "bb_std": 2.0,
+        "macd_fast": 8,
+        "macd_slow": 17,
+        "macd_signal": 7,
+        "atr_multiplier": 1.0,
+        "ml_horizon_bars": 3,
+        "squeeze_loaded_bars": 4,
+        "role": "Rapid Scalp & 1M-5M Bridge",
     },
     "5m": {
         "horizon_desc": "15 min",
@@ -122,6 +139,21 @@ TIMEFRAME_PARAMETERS = {
         "squeeze_loaded_bars": 3,
         "role": "Intraday benchmark structure",
     },
+    "2h": {
+        "horizon_desc": "6 hours",
+        "rsi_periods": (6, 14, 28),
+        "fast_ema": 10,
+        "slow_ema": 25,
+        "bb_period": 20,
+        "bb_std": 2.0,
+        "macd_fast": 12,
+        "macd_slow": 26,
+        "macd_signal": 9,
+        "atr_multiplier": 1.8,
+        "ml_horizon_bars": 2,
+        "squeeze_loaded_bars": 3,
+        "role": "Intraday Wave Anchor (1H-4H Bridge)",
+    },
     "4h": {
         "horizon_desc": "12 hours",
         "rsi_periods": (7, 14, 28),
@@ -166,21 +198,6 @@ TIMEFRAME_PARAMETERS = {
         "ml_horizon_bars": 1,
         "squeeze_loaded_bars": 3,
         "role": "Macro Trend & Daily Strategic Roadmap",
-    },
-    "1w": {
-        "horizon_desc": "3 weeks",
-        "rsi_periods": (7, 14, 21),
-        "fast_ema": 10,
-        "slow_ema": 40,
-        "bb_period": 20,
-        "bb_std": 2.0,
-        "macd_fast": 12,
-        "macd_slow": 26,
-        "macd_signal": 9,
-        "atr_multiplier": 2.0,
-        "ml_horizon_bars": 1,
-        "squeeze_loaded_bars": 3,
-        "role": "Macro weekly regime",
     },
 }
 

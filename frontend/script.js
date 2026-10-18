@@ -4,7 +4,7 @@
 
 let currentTf = "1h";
 const _localTfCache = {};
-const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "8h", "1d", "1w"];
+const TIMEFRAMES = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "1d"];
 
 document.addEventListener("DOMContentLoaded", () => {
     initTimeframeButtons();

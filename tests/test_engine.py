@@ -195,14 +195,15 @@ class TestBtcToolEngine(unittest.TestCase):
     def test_cross_timeframe_alignment(self):
         summaries = {
             "1m": {"prob_up": 0.70, "prob_down": 0.30},
+            "3m": {"prob_up": 0.68, "prob_down": 0.32},
             "5m": {"prob_up": 0.65, "prob_down": 0.35},
             "15m": {"prob_up": 0.68, "prob_down": 0.32},
             "30m": {"prob_up": 0.60, "prob_down": 0.40},
             "1h": {"prob_up": 0.62, "prob_down": 0.38},
+            "2h": {"prob_up": 0.64, "prob_down": 0.36},
             "4h": {"prob_up": 0.72, "prob_down": 0.28},
             "8h": {"prob_up": 0.66, "prob_down": 0.34},
             "1d": {"prob_up": 0.58, "prob_down": 0.42},
-            "1w": {"prob_up": 0.50, "prob_down": 0.50},
         }
         align = calculate_cross_timeframe_alignment(summaries)
         self.assertEqual(align["dominant_direction"], "BULLISH")
