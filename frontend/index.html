@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>btctool 3.0 · Institutional Directive Engine</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="terminal-container">
+        <!-- Header -->
+        <header class="top-nav">
+            <div class="brand">
+                <span class="logo-dot"></span>
+                <span class="brand-title">BTC TOOL <span class="version-tag">3.0 UNIFIED</span></span>
+            </div>
+            
+            <div class="live-ticker">
+                <span class="symbol">BTC/USDT</span>
+                <span id="current-price" class="price-val">--</span>
+                <span id="price-change" class="change-tag">--%</span>
+            </div>
+
+            <div class="header-badges">
+                <div id="macro-badge" class="badge badge-neutral">4H REGIME: --</div>
+                <div id="cross-tf-badge" class="badge badge-neutral">CROSS-TF: --</div>
+                <div id="squeeze-badge" class="badge badge-squeeze">SQUEEZE: --</div>
+            </div>
+        </header>
+
+        <!-- Timeframe Navigation -->
+        <nav class="timeframe-bar">
+            <button class="tf-btn" data-tf="1m">1M</button>
+            <button class="tf-btn" data-tf="5m">5M</button>
+            <button class="tf-btn" data-tf="15m">15M</button>
+            <button class="tf-btn" data-tf="30m">30M</button>
+            <button class="tf-btn active" data-tf="1h">1H</button>
+            <button class="tf-btn" data-tf="4h">4H</button>
+            <button class="tf-btn" data-tf="8h">8H</button>
+            <button class="tf-btn" data-tf="1d">1D</button>
+            <button class="tf-btn" data-tf="1w">1W</button>
+            <div class="status-indicator">
+                <span class="ping-dot"></span>
+                <span id="status-text">LIVE ENGINE</span>
+            </div>
+        </nav>
+
+        <!-- Main Dashboard Grid -->
+        <main class="dashboard-grid">
+            <!-- Card 1: Actionable Directive & Execution Matrix -->
+            <section class="card directive-card">
+                <div class="card-header">
+                    <h2>TRADING DIRECTIVE & EXECUTION PLAN</h2>
+                    <span id="scenario-tag" class="pill">Scenario --</span>
+                </div>
+                
+                <div class="directive-hero">
+                    <div id="directive-action" class="action-banner">INITIALIZING DIRECTIVE...</div>
+                    <div id="directive-role" class="timeframe-role">--</div>
+                </div>
+
+                <div class="triggers-grid">
+                    <div class="trigger-box long-box">
+                        <span class="trigger-label">LONG ENTRY TRIGGER</span>
+                        <span id="long-trigger" class="trigger-val">$--</span>
+                        <span class="sub-label">Distinct Structural Level</span>
+                    </div>
+                    <div class="trigger-box short-box">
+                        <span class="trigger-label">SHORT ENTRY TRIGGER</span>
+                        <span id="short-trigger" class="trigger-val">$--</span>
+                        <span class="sub-label">Distinct Breakdown Level</span>
+                    </div>
+                </div>
+
+                <div class="execution-parameters">
+                    <div class="param-row">
+                        <span class="param-name">Invalidation (Stop Loss):</span>
+                        <span id="stop-loss-val" class="param-val text-red">$--</span>
+                    </div>
+                    <div class="param-row">
+                        <span class="param-name">Target 1 (Scalp / Base):</span>
+                        <span id="target1-val" class="param-val text-green">$--</span>
+                    </div>
+                    <div class="param-row">
+                        <span class="param-name">Target 2 (Max Runner):</span>
+                        <span id="target2-val" class="param-val text-gold">$--</span>
+                    </div>
+                    <div class="param-row">
+                        <span class="param-name">Risk : Reward Ratio:</span>
+                        <span id="rr-ratio-val" class="param-val">--</span>
+                    </div>
+                    <div class="param-row">
+                        <span class="param-name">ATR Multiple Standard:</span>
+                        <span id="atr-multiple-val" class="param-val">--</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Card 2: ML Meta-Learner & Microstructure Depth -->
+            <section class="card ml-card">
+                <div class="card-header">
+                    <h2>CALIBRATED ML PROBABILITY & ORDERBOOK</h2>
+                    <span class="pill">Platt Scaled</span>
+                </div>
+
+                <div class="prob-bars">
+                    <div class="prob-metric">
+                        <div class="prob-header">
+                            <span>PROBABILITY UP</span>
+                            <span id="prob-up-text" class="text-green font-bold">50.0%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="prob-up-bar" class="progress-fill green-fill" style="width: 50%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="prob-metric">
+                        <div class="prob-header">
+                            <span>PROBABILITY DOWN</span>
+                            <span id="prob-down-text" class="text-red font-bold">50.0%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="prob-down-bar" class="progress-fill red-fill" style="width: 50%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="microstructure-box">
+                    <div class="micro-stat">
+                        <span class="stat-title">L2 OB Imbalance:</span>
+                        <span id="ob-imbalance-val" class="stat-num">--</span>
+                    </div>
+                    <div class="micro-stat">
+                        <span class="stat-title">tanh Alpha (ΔP):</span>
+                        <span id="ob-alpha-val" class="stat-num">--</span>
+                    </div>
+                    <div class="micro-stat">
+                        <span class="stat-title">Funding Rate:</span>
+                        <span id="funding-rate-val" class="stat-num">--%</span>
+                    </div>
+                    <div class="micro-stat">
+                        <span class="stat-title">OI Change Z-Score:</span>
+                        <span id="oi-zscore-val" class="stat-num">--</span>
+                    </div>
+                    <div class="micro-stat">
+                        <span class="stat-title">Taker Flow Delta:</span>
+                        <span id="taker-delta-val" class="stat-num">--</span>
+                    </div>
+                    <div class="micro-stat">
+                        <span class="stat-title">Book Anti-Spoof:</span>
+                        <span id="anti-spoof-val" class="stat-num">Active (3-Snap)</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Card 3: Tri-Brain Ensemble Breakdown -->
+            <section class="card brains-card">
+                <div class="card-header">
+                    <h2>TRI-BRAIN QUANTITATIVE ENSEMBLE</h2>
+                    <span class="pill">Scaled Indicators</span>
+                </div>
+
+                <div class="brain-item">
+                    <div class="brain-header">
+                        <span class="brain-name">1. Statistical Brain</span>
+                        <span id="stat-score" class="brain-score">Bull: -- / Bear: --</span>
+                    </div>
+                    <div class="brain-details">
+                        <span>%B Position: <strong id="pct-b-val">--</strong></span>
+                        <span id="stat-note" class="brain-note">--</span>
+                    </div>
+                </div>
+
+                <div class="brain-item">
+                    <div class="brain-header">
+                        <span class="brain-name">2. Momentum Brain</span>
+                        <span id="mom-score" class="brain-score">Bull: -- / Bear: --</span>
+                    </div>
+                    <div class="brain-details">
+                        <span>Dynamic RSI: <strong id="rsi-val">-- / -- / --</strong></span>
+                        <span>MACD Slope: <strong id="macd-slope-val">--</strong></span>
+                    </div>
+                </div>
+
+                <div class="brain-item">
+                    <div class="brain-header">
+                        <span class="brain-name">3. Volatility Brain & Squeeze FSM</span>
+                        <span id="vol-score" class="brain-score">State: --</span>
+                    </div>
+                    <div class="brain-details">
+                        <span>ATR (14): <strong id="atr-val">$-- (--%)</strong></span>
+                        <span id="vol-regime-val" class="brain-note">--</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Card 4: Pre-Filter Warnings & Sentiment -->
+            <section class="card filter-card">
+                <div class="card-header">
+                    <h2>DERIVATIVES PRE-FILTER & SENTIMENT</h2>
+                    <span class="pill">Institutional Gate</span>
+                </div>
+
+                <div class="adx-gate-box">
+                    <div class="adx-row">
+                        <span>Wilder ADX(14) Trend Gate:</span>
+                        <span id="adx-val" class="font-bold">--</span>
+                    </div>
+                    <div class="adx-status" id="adx-status">ADX > 22 Confirms Trend</div>
+                </div>
+
+                <div class="sentiment-box">
+                    <span class="sentiment-title">Market Sentiment:</span>
+                    <span id="sentiment-val" class="sentiment-badge">Neutral</span>
+                    <span id="sentiment-src" class="sentiment-src">Alternative.me</span>
+                </div>
+
+                <div class="alerts-container">
+                    <div class="alerts-header">Institutional Warnings & Traps:</div>
+                    <ul id="warnings-list" class="warnings-list">
+                        <li>Pre-filter clear. No institutional traps active.</li>
+                    </ul>
+                </div>
+            </section>
+        </main>
+
+        <!-- Cross-Timeframe Radar Footer -->
+        <footer class="radar-footer">
+            <div class="radar-title">CROSS-TIMEFRAME CONFLUENCE RADAR:</div>
+            <div id="radar-strip" class="radar-strip">
+                <!-- Dynamically generated buttons for all 9 timeframes -->
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
